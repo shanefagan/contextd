@@ -14,6 +14,7 @@ A generic, lightweight Linux daemon that exposes game detection and hardware inv
 - **Wide Support**: Detects games from:
   - **Steam**: Native and Flatpak versions.
   - **Heroic Games Launcher**: Epic Games, GOG, and Amazon Games.
+  - **Lutris**: Open-source gaming platform for Linux.
   - **Process Detection**: (Coming soon) for generic standalone titles.
 - **Hardware-Aware**: 
   - Groups complex udev nodes into single logical devices.
