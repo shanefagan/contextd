@@ -10,4 +10,5 @@
 
 - [x] **Portable Service Hardening**: Refine the sandbox to work across different distro library versions.
 
-- [ ] **Logo & Identity**: Create a simple icon/logo for the project.
+- [x] **Logo & Identity**: Create a simple icon/logo for the project.
+
