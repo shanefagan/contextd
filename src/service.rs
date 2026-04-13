@@ -10,17 +10,17 @@ pub struct ContextService {
 
 impl VarlinkInterface for ContextService {
     fn get_active_game(&self, call: &mut dyn Call_GetActiveGame) -> varlink::Result<()> {
-        let manager = self.game_manager.read().unwrap();
+        let mut manager = self.game_manager.write().unwrap();
         call.reply(manager.get_active_game())
     }
 
     fn list_installed_games(&self, call: &mut dyn Call_ListInstalledGames) -> varlink::Result<()> {
-        let manager = self.game_manager.read().unwrap();
+        let mut manager = self.game_manager.write().unwrap();
         call.reply(manager.list_all_installed())
     }
 
     fn list_devices(&self, call: &mut dyn Call_ListDevices) -> varlink::Result<()> {
-        let manager = self.hardware_manager.read().unwrap();
+        let mut manager = self.hardware_manager.write().unwrap();
         call.reply(manager.list_all_devices())
     }
 
