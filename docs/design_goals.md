@@ -27,7 +27,8 @@ Context Daemon is a lightweight Linux utility designed to bridge the gap between
 - **Context NOT Configuration**: `contextd` is a context provider. It reports *what* is happening. It does not attempt to configure hardware, map keys, or manage lighting. Configuration should be handled by specialized client-side tools using the context provided here.
 - **Pull-over-Push**: For hardware state, we prefer simple polling with optimized caching. This avoids the fragility of system-wide hotplug listeners in a containerized world.
 
-- **`contextd` Daemon**: The core service running in the background.
-- **Varlink Interface**: The primary way for clients to interact with the daemon (`io.github.contextd`).
-- **Detectors**: Modular components for identifying software (Steam, Heroic, Lutris detectors).
-- **Inventory**: A hardware tracker using `udev`.
+## Future: Flatpak Portal Strategy
+To support sandboxed applications (like OBS or Flatpak-based hardware drivers), `contextd` targets a D-Bus "Portal Bridge" model:
+- **Metadata Proxy**: Proxy Varlink calls to D-Bus for apps that cannot access Unix sockets.
+- **FD Passing**: Provide a mechanism to open `/dev/hidraw` nodes on behalf of sandboxed apps and pass the File Descriptor over D-Bus, eliminating the need for wide `--device=all` Flatpak permissions.
+- **User Consent**: Integrate with desktop portals to provide "Allow this app to see your hardware" prompts.

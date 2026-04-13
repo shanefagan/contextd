@@ -12,7 +12,6 @@
 - [x] Implement Heroic Games Launcher support (Epic, GOG, Amazon).
 - [x] Implement Lutris detector (SQLite `pga.db` parsing).
 - [x] Implement generic process-based detection (searching `/proc` for non-launcher apps).
-- [ ] Add real-time event subscription for session state changes (Deferred: Preferring polling for stability).
 
 ## Phase 3: Hardware Inventory
 - [x] Implement udev-based device discovery.
@@ -29,3 +28,13 @@
 - [x] Hardened systemd sandbox with capability dropping.
 - [x] Add unit tests for core manager logic.
 - [x] Comprehensive documentation and design goals.
+
+## Phase 5: Ecosystem & Context Maturity
+- [ ] **Flatpak Integration**: Document and test the "Socket Export" strategy for allowing Flatpak-based OBS to query the daemon.
+
+## Phase 6: Packaging & CI
+- [ ] **GitHub Actions Workflow**: Automate build, test, and portable tree assembly.
+- [ ] **Release Automation**: Auto-generate `.tar.gz` and GitHub Releases on tags.
+- [ ] **Arch Linux PKGBUILD**: Create an AUR package for `contextd-git`.
+- [ ] **Portable Service Hardening**: Refine the sandbox to work across different distro library versions.
+- [ ] **Logo & Identity**: Create a simple icon/logo for the project.
