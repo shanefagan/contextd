@@ -1,14 +1,14 @@
 use std::sync::{Arc, RwLock};
 use crate::detectors::games::manager::GameManager;
 use crate::detectors::hardware::manager::HardwareManager;
-use crate::game_linkd::*;
+use crate::contextd::*;
 
-pub struct GameLinkdService {
+pub struct ContextService {
     pub game_manager: Arc<RwLock<GameManager>>,
     pub hardware_manager: Arc<RwLock<HardwareManager>>,
 }
 
-impl VarlinkInterface for GameLinkdService {
+impl VarlinkInterface for ContextService {
     fn get_active_game(&self, call: &mut dyn Call_GetActiveGame) -> varlink::Result<()> {
         let manager = self.game_manager.read().unwrap();
         call.reply(manager.get_active_game())

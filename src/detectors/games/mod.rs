@@ -1,4 +1,4 @@
-pub use crate::game_linkd::Game;
+pub use crate::contextd::Game;
 
 pub trait GameDetector: Send + Sync {
     /// Unique name of the detector (e.g., "Steam", "Lutris")

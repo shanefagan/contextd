@@ -1,4 +1,4 @@
-interface io.github.game-linkd
+interface io.github.contextd
 
 # Hardware device type
 type Device (

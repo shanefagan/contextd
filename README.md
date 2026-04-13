@@ -1,31 +1,28 @@
-# Game Linkd (`game-linkd`)
+# Context Daemon (`contextd`)
 
-A generic, lightweight Linux daemon that exposes game detection and hardware inventory via a Varlink interface.
+A generic, lightweight Linux daemon that exposes process context (e.g., gaming activity) and hardware inventory via a Varlink interface.
 
 ## Purpose
 
-`game-linkd` allows userspace applications to:
-1. **Detect active gaming sessions**: Seamlessly identify when a game starts or stops across multiple launchers.
-2. **Hardware Inventory**: List connected gaming peripherals (keyboards, mice, controllers) and check their access permissions (`uaccess`).
-3. **IPC Bridge**: Provides a root-level daemon that exposes a safe, unprivileged socket for user-level apps (like RGB controllers) to query system state.
+`contextd` allows userspace applications to:
+1. **Detect active sessions**: Seamlessly identify when a high-performance app or game starts or stops across multiple launchers.
+2. **Hardware Inventory**: List connected peripherals (keyboards, mice, controllers) and check their access permissions (`uaccess`).
+3. **IPC Bridge**: Provides a root-level daemon that exposes a safe, unprivileged socket for user-level apps (like RGB controllers or profile switchers) to query system state.
 
 ## Features
 
-- **Wide Support**: Detects games from:
+- **Wide Support**: Detects games and apps from:
   - **Steam**: Native and Flatpak versions.
   - **Heroic Games Launcher**: Epic Games, GOG, and Amazon Games.
   - **Lutris**: Open-source gaming platform for Linux.
-  - **Process Detection**: (Coming soon) for generic standalone titles.
 - **Hardware-Aware**: 
   - Groups complex udev nodes into single logical devices.
   - Identifies Manufacturer/Vendor names.
   - Reports `uaccess` status for "readiness" checks.
 - **Modern IPC**: Uses [Varlink](https://varlink.org/) for typed, discoverable, and language-agnostic communication.
-- **Zero-Dependency Core**: Distributed as a **systemd portable service**, bundling its own environment while remaining distro-agnostic.
+- **systemd Native**: Distributed as a **systemd portable service**, ensuring zero-dependency deployment on any modern Linux distro.
 
 ## Installation (systemd portablectl)
-
-The project is designed to be deployed using `portablectl`. This ensures all dependencies are bundled and it remains independent of the host OS.
 
 ### Build and Install
 Use the provided automation script:
@@ -34,37 +31,32 @@ Use the provided automation script:
 ./scripts/install_portable.sh
 ```
 
-This script will:
-1. Build the Rust binary in release mode.
-2. Assemble the portable OS tree in `./game-linkd/`.
-3. Attach and start the service using `portablectl attach --now`.
+This script builds the Rust binary, assembles the portable OS tree in `./contextd/`, and attaches the service using `portablectl`.
 
 ### Interaction
-You can use the provided script to query the daemon:
+Use the `contextctl` helper to query the daemon:
 
 ```bash
-# Get active game (returns JSON if a game is running)
-./scripts/gamelinkcli.sh active
+# Get active game/app
+./scripts/contextctl.sh active
 
-# List installed games across Steam/Heroic
-./scripts/gamelinkcli.sh list-games
+# List installed games
+./scripts/contextctl.sh list-games
 
 # List connected peripherals
-./scripts/gamelinkcli.sh list-devices
+./scripts/contextctl.sh list-devices
 ```
 
 ## Managing the Service
 
-Once attached, treat it like any other systemd service:
-
 ```bash
-sudo systemctl status game-linkd
-sudo systemctl restart game-linkd
+sudo systemctl status contextd
+sudo systemctl restart contextd
 ```
 
 To detach/uninstall:
 ```bash
-sudo portablectl detach game-linkd
+sudo portablectl detach contextd
 ```
 
 ## License

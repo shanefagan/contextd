@@ -1,3 +1,3 @@
 fn main() {
-    varlink_generator::cargo_build("src/game_linkd.varlink");
+    varlink_generator::cargo_build("src/contextd.varlink");
 }

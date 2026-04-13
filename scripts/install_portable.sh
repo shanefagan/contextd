@@ -1,58 +1,57 @@
 #!/bin/bash
 set -e
 
-# Configuration
-IMAGE_NAME="game-linkd"
-PROJECT_ROOT=$(git rev-parse --show-toplevel)
-WORK_DIR="${PROJECT_ROOT}/${IMAGE_NAME}"
-BINARY="${PROJECT_ROOT}/target/release/game_linkd"
-
-echo "--- Building Game Linkd ---"
+echo "--- Building contextd ---"
 cargo build --release
 
-echo "--- Detaching Existing Service (if any) ---"
-sudo portablectl detach --now "${IMAGE_NAME}" || true
+# Service name
+NAME="contextd"
+IMAGE_DIR="./${NAME}"
+BIN_PATH="./target/release/${NAME}"
 
-echo "--- Assembling Portable Image Tree ---"
-mkdir -p "${WORK_DIR}/usr/bin"
-mkdir -p "${WORK_DIR}/usr/lib/systemd/system"
-mkdir -p "${WORK_DIR}/etc"
+# Clean up previous image directory if it exists
+# We use sudo because portablectl might have left root-owned files
+sudo rm -rf "${IMAGE_DIR}"
+mkdir -p "${IMAGE_DIR}/usr/bin"
+mkdir -p "${IMAGE_DIR}/usr/lib/systemd/system"
+mkdir -p "${IMAGE_DIR}/etc"
 
-rm -f "${WORK_DIR}/usr/bin/${IMAGE_NAME}"
-cp "${BINARY}" "${WORK_DIR}/usr/bin/${IMAGE_NAME}"
+# Create os-release (required by portablectl)
+cat <<EOF > "${IMAGE_DIR}/etc/os-release"
+ID=contextd
+NAME="Context Daemon Portable Image"
+PRETTY_NAME="Context Daemon Portable Image"
+EOF
 
-# Ensure the unit file exists in the image
-# (We already created it, but the script can ensure it's synced)
-cat <<EOF > "${WORK_DIR}/usr/lib/systemd/system/${IMAGE_NAME}.service"
+# Copy binary
+cp "${BIN_PATH}" "${IMAGE_DIR}/usr/bin/"
+
+# Create service file
+cat <<EOF > "${IMAGE_DIR}/usr/lib/systemd/system/${NAME}.service"
 [Unit]
-Description=Game Linkd Daemon
+Description=Context Daemon
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/game-linkd
+ExecStart=/usr/bin/${NAME}
 Restart=always
 RestartSec=5
-RuntimeDirectory=game-linkd
+RuntimeDirectory=${NAME}
 BindReadOnlyPaths=/usr/lib /usr/lib64 /lib /lib64 /etc/ld.so.cache /home
 
 [Install]
 WantedBy=default.target
 EOF
 
-# Ensure os-release is present
-cat <<EOF > "${WORK_DIR}/usr/lib/os-release"
-ID=${IMAGE_NAME}
-NAME="Game Linkd"
-VERSION="0.1.0"
-PORTABLE_SERVICE=1
-EOF
-ln -sf /usr/lib/os-release "${WORK_DIR}/etc/os-release"
+echo "--- Detaching Existing Service (if any) ---"
+sudo portablectl detach "${NAME}" --now --force || true
+
+echo "--- Assembling Portable Image Tree ---"
+# We just use the directory for now, portablectl can attach directories as images
 
 echo "--- Attaching Portable Service ---"
-# Attach the directory as a portable service
-sudo portablectl attach --now --profile=trusted "${WORK_DIR}"
+sudo portablectl attach "${IMAGE_DIR}" --now --copy=symlink --profile=trusted
 
-echo "--- Status ---"
-sudo portablectl is-attached "${IMAGE_NAME}"
-systemctl status "${IMAGE_NAME}" --no-pager
+echo "--- contextd deployment complete ---"
+echo "Check status with: systemctl status ${NAME}"

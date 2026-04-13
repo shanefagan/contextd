@@ -1,5 +1,5 @@
 use super::{Game, GameDetector};
-use std::sync::{Arc, RwLock};
+// manager.rs cleanup
 
 pub struct GameManager {
     detectors: Vec<Box<dyn GameDetector>>,

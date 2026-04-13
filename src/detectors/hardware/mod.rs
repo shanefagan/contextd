@@ -1,4 +1,4 @@
-pub use crate::game_linkd::Device;
+pub use crate::contextd::Device;
 
 pub trait HardwareDetector: Send + Sync {
     fn name(&self) -> &str;
