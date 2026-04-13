@@ -2,7 +2,9 @@ pub use crate::contextd::Game;
 
 pub trait GameDetector: Send + Sync {
     /// Unique name of the detector (e.g., "Steam", "Lutris")
+    #[allow(dead_code)]
     fn name(&self) -> &str;
+
 
     /// Returns a list of all games installed through this source
     fn list_installed(&self) -> Vec<Game>;

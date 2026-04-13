@@ -1,10 +1,11 @@
 mod detectors;
 mod contextd {
+    #![allow(nonstandard_style, unused_imports, dead_code)]
     include!(concat!(env!("OUT_DIR"), "/contextd.rs"));
 }
+
 mod service;
 
-use std::fs;
 use std::sync::{Arc, RwLock};
 use varlink::VarlinkService;
 

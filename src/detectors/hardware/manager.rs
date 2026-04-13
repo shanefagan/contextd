@@ -24,7 +24,9 @@ impl HardwareManager {
         self.rgb_cache = None;
     }
 
+    #[allow(dead_code)]
     pub fn invalidate(&mut self) {
+
         log::debug!("Hardware cache invalidated due to hotplug event");
         self.cache = None;
         self.rgb_cache = None;
