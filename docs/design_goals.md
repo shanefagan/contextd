@@ -14,10 +14,11 @@ Game Linkd is a lightweight Linux daemon designed to bridge the gap between runn
 - Provide basic device identification (Vendor ID, Product ID, Name, Bus Type).
 - Monitor for hotplug events to keep the inventory up-to-date.
 
-### 3. Privacy-First & Generic
-- Only expose non-sensitive information.
-- No tracking of user behavior beyond what is necessary for profile switching.
-- Standardized Varlink interface that any client can implement.
+### 3. Security & IPC Model
+- **Root-level Daemon**: Runs as root to have unrestricted access to `/proc`, `/home` manifests, and `udev`.
+- **Public Socket**: Exposes a `0666` permission socket at `/run/game-linkd/game-linkd.socket`.
+- **PackageKit-style**: Similar to PackageKit or systemd-networkd, it allows unprivileged user applications to query system-wide gaming state without requiring `sudo` or complex DBus permissions.
+- **Privacy-First**: Only exposes metadata about games and hardware; no PII or telemetry.
 
 ### 4. Linux-Centric Design
 - Leverage native Linux APIs (udev, procfs, D-Bus where helpful) to provide the most efficient implementation.

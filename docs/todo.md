@@ -5,22 +5,27 @@
 - [x] Create generic `GameDetector` and `HardwareDetector` traits.
 - [x] Implement `GameManager` and `HardwareManager` orchestrators.
 - [x] Initialize Rust project with foundational crates (`serde`, `varlink`, `udev`).
-- [ ] Implement Varlink server loop.
+- [x] Implement Varlink server loop.
 
 ## Phase 2: Game Detection
-- [ ] Implement Steam game detection (parsing `.acf` and `libraryfolders.vdf`).
-- [ ] Implement generic process-based detection (searching `/proc`).
-- [ ] Implement Lutris/Heroic detectors.
+- [x] Implement Steam game detection (parsing `.acf` and `libraryfolders.vdf`).
+- [x] Implement Heroic Games Launcher support (Epic, GOG, Amazon).
+- [ ] Implement Lutris detector.
+- [ ] Implement generic process-based detection (searching `/proc` for non-launcher games).
 - [ ] Add real-time event subscription for game state changes.
 
 ## Phase 3: Hardware Inventory
-- [ ] Implement udev-based device discovery.
-- [ ] Filter for relevant classes (Keyboards, Mice, Gamepads).
-- [ ] Implement hotplug notification logic.
-- [ ] Export device list via Varlink.
+- [x] Implement udev-based device discovery.
+- [x] Filter for relevant classes (Keyboards, Mice, Gamepads).
+- [x] Refine "real" device detection (ignore dongles/hubs where possible).
+- [x] Add uaccess/permission check logic.
+- [ ] Implement hotplug notification logic (udev monitoring).
+- [x] Export device list via Varlink.
 
-## Phase 4: Polish & Integration
-- [ ] Create a CLI client for testing the Varlink interface.
+## Phase 4: Deployment & Polish
+- [x] Create a CLI client for testing the Varlink interface (`scripts/gamelinkcli.sh`).
 - [x] Implement `portablectl` image assembly and install script.
+- [x] Configure socket permissions (0666) for userspace access.
+- [x] Bind-mount host paths (/home, /usr/lib) for portable service compatibility.
 - [ ] Comprehensive documentation of the interface methods.
 - [ ] Performance optimization (minimize resource usage during detection).
