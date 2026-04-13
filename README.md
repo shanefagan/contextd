@@ -51,6 +51,18 @@ Use the `contextctl` helper to query the daemon:
 ./scripts/contextctl.sh list-rgb
 ```
 
+## Debugging & Testing
+
+A Python-based debugger is available to inspect the daemon state and monitor events:
+
+```bash
+# Get a pretty-printed system dashboard
+./tests/debug_tools.py dash
+
+# Monitor live hardware and game events
+./tests/debug_tools.py monitor
+```
+
 ## Managing the Service
 
 ```bash

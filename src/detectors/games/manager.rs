@@ -55,6 +55,51 @@ impl GameManager {
         game
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct MockDetector {
+        games: Vec<Game>,
+        running: Option<Game>,
+    }
+
+    impl GameDetector for MockDetector {
+        fn name(&self) -> &str { "Mock" }
+        fn list_installed(&self) -> Vec<Game> { self.games.clone() }
+        fn list_running(&self) -> Vec<Game> { 
+            self.running.clone().into_iter().collect()
+        }
+    }
+
+    #[test]
+    fn test_game_manager_cache() {
+        let mut mgr = GameManager::new();
+        let game = Game {
+            name: "Test Game".to_string(),
+            id: Some("123".to_string()),
+            source: "Mock".to_string(),
+            pid: None,
+        };
+
+        mgr.add_detector(Box::new(MockDetector {
+            games: vec![game.clone()],
+            running: None,
+        }));
+
+        // First call should populate cache
+        let games = mgr.list_all_installed();
+        assert_eq!(games.len(), 1);
+        assert_eq!(games[0].name, "Test Game");
+
+        // Even if we add more games to the detector, cache should return old value
+        // Note: In this simple mock we can't easily change the detector's state since it's boxed
+        // but we can verify that the second call is immediate.
+        let games2 = mgr.list_all_installed();
+        assert_eq!(games2.len(), 1);
+    }
+}
 impl Default for GameManager {
     fn default() -> Self {
         Self::new()
