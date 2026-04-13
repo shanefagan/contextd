@@ -34,7 +34,7 @@ ExecStart=/usr/bin/game-linkd
 Restart=always
 RestartSec=5
 RuntimeDirectory=game-linkd
-BindReadOnlyPaths=/usr/lib /usr/lib64 /lib /lib64 /etc/ld.so.cache
+BindReadOnlyPaths=/usr/lib /usr/lib64 /lib /lib64 /etc/ld.so.cache /home
 
 [Install]
 WantedBy=default.target
