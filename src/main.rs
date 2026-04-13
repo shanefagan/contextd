@@ -8,6 +8,7 @@ use std::sync::{Arc, RwLock};
 use varlink::VarlinkService;
 
 use crate::detectors::games::steam::SteamDetector;
+use crate::detectors::games::heroic::HeroicDetector;
 use crate::detectors::games::process::ProcessDetector;
 use crate::detectors::games::manager::GameManager;
 use crate::detectors::hardware::udev::UdevDetector;
@@ -22,6 +23,7 @@ fn main() -> anyhow::Result<()> {
     // Initialize Managers
     let mut game_manager = GameManager::new();
     game_manager.add_detector(Box::new(SteamDetector::new()));
+    game_manager.add_detector(Box::new(HeroicDetector::new()));
     game_manager.add_detector(Box::new(ProcessDetector::new()));
     let game_manager = Arc::new(RwLock::new(game_manager));
 
