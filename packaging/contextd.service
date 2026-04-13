@@ -14,13 +14,26 @@ ProtectHome=read-only
 CapabilityBoundingSet=CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
 AmbientCapabilities=CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
 NoNewPrivileges=yes
+
+# Sandboxing & Security
 ProtectSystem=strict
-PrivateDevices=no
-ProtectControlGroups=yes
+ProtectHome=read-only
+ProtectHostname=yes
+ProtectKernelLogs=yes
 ProtectKernelModules=yes
 ProtectKernelTunables=yes
+ProtectControlGroups=yes
+ProtectClock=yes
 MemoryDenyWriteExecute=yes
 RestrictAddressFamilies=AF_UNIX AF_NETLINK
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+PrivateDevices=no
+PrivateTmp=yes
+SystemCallFilter=@system-service @process @file-system
+SystemCallErrorNumber=EPERM
 
 [Install]
 WantedBy=multi-user.target
+

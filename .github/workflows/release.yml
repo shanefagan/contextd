@@ -14,26 +14,32 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [x86_64-unknown-linux-gnu]
+        target: [x86_64-unknown-linux-musl]
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libudev-dev
+          sudo apt-get install -y libudev-dev musl-tools
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Build contextd
-        run: cargo build --release
+      - name: Build contextd (Static)
+        env:
+          LIBUDEV_STATIC: 1
+        run: cargo build --release --target ${{ matrix.target }}
+
 
       - name: Assemble Portable Image
-        run: ./scripts/package-portable.sh dist/contextd target/release/contextd
+        run: ./scripts/package-portable.sh dist/contextd target/${{ matrix.target }}/release/contextd
+
 
       - name: Create Tarball
         run: |
@@ -50,7 +56,8 @@ jobs:
         with:
           files: |
             contextd-portable-${{ github.ref_name }}.tar.gz
-            target/release/contextd
+            target/${{ matrix.target }}/release/contextd
+
           body_path: CHANGELOG.md
           draft: false
           prerelease: false

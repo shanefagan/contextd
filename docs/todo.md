@@ -8,5 +8,6 @@
 - [x] **Release Automation**: Auto-generate `.tar.gz` and GitHub Releases on tags.
 - [ ] **Arch Linux PKGBUILD**: Create/Update an AUR package for `contextd-git`.
 
-- [ ] **Portable Service Hardening**: Refine the sandbox to work across different distro library versions.
+- [x] **Portable Service Hardening**: Refine the sandbox to work across different distro library versions.
+
 - [ ] **Logo & Identity**: Create a simple icon/logo for the project.
