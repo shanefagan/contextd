@@ -1,16 +1,18 @@
-# Maintainer: Your Name <youremail@example.com>
+# Maintainer: Shane Fagan <shane@performativenonsense.com>
 pkgname=contextd-git
 pkgver=0.1.0.r15.d837af8
 pkgrel=1
 pkgdesc="Lightweight game and hardware context daemon (Portable Hybrid)"
 arch=('x86_64')
 url="https://github.com/shanefagan/contextd"
-license=('MIT' 'Apache-2.0')
+
+license=('MIT')
 depends=('systemd')
 makedepends=('git' 'cargo')
 provides=('contextd')
 conflicts=('contextd')
-source=("contextd::git+file:///home/shane/Projects/game_linkd")
+source=("contextd::git+https://github.com/shanefagan/contextd")
+
 md5sums=('SKIP')
 
 pkgver() {

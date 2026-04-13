@@ -10,6 +10,8 @@ on:
 env:
   CARGO_TERM_COLOR: always
   NAME: contextd
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 
 permissions:
   contents: write
@@ -18,7 +20,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Install dependencies
       run: |
@@ -108,14 +110,14 @@ jobs:
         ls -R dist/
 
     - name: Upload Artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: ${{ env.NAME }}-packages
         path: dist/
 
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/v')
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         files: dist/*
         draft: false
