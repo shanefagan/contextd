@@ -50,19 +50,14 @@ jobs:
           cd dist
           tar -czvf ../contextd-portable-${{ github.ref_name }}.tar.gz contextd/
 
-      - name: Generate Changelog
-        uses: anton-yurchenko/git-release-changelog-generator@v3
-        with:
-          patch: true
-
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             contextd-portable-${{ github.ref_name }}.tar.gz
             target/${{ matrix.target }}/release/contextd
-
-          body_path: CHANGELOG.md
+          generate_release_notes: true
           draft: false
           prerelease: false
+
 
