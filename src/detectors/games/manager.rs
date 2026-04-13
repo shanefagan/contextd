@@ -24,10 +24,8 @@ impl GameManager {
     }
 
     pub fn list_all_installed(&mut self) -> Vec<Game> {
-        if let Some((cache, ts)) = &self.installed_cache {
-            if ts.elapsed() < CACHE_DURATION {
-                return cache.clone();
-            }
+        if let Some((cache, ts)) = &self.installed_cache && ts.elapsed() < CACHE_DURATION {
+            return cache.clone();
         }
 
         let games: Vec<Game> = self
@@ -41,10 +39,8 @@ impl GameManager {
     }
 
     pub fn get_active_game(&mut self) -> Option<Game> {
-        if let Some((cache, ts)) = &self.active_cache {
-            if ts.elapsed() < CACHE_DURATION {
-                return cache.clone();
-            }
+        if let Some((cache, ts)) = &self.active_cache && ts.elapsed() < CACHE_DURATION {
+            return cache.clone();
         }
 
         let game = self.detectors.iter().flat_map(|d| d.list_running()).next();

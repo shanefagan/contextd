@@ -111,13 +111,11 @@ impl GameDetector for SteamDetector {
             if let Ok(entries) = fs::read_dir(steamapps) {
                 for entry in entries.flatten() {
                     let path = entry.path();
-                    if path.extension().and_then(|s| s.to_str()) == Some("acf") {
-                        if let Some(ref game) = self.parse_acf(&path) {
-                            // Deduplicate by AppID
-                            if !games.iter().any(|g: &Game| g.id == game.id) {
-                                games.push(game.clone());
-                            }
-                        }
+                    if path.extension().and_then(|s| s.to_str()) == Some("acf")
+                        && let Some(ref game) = self.parse_acf(&path)
+                        && !games.iter().any(|g: &Game| g.id == game.id)
+                    {
+                        games.push(game.clone());
                     }
                 }
             }
@@ -144,12 +142,12 @@ impl GameDetector for SteamDetector {
                         for env_var in environ.split(|&b| b == 0) {
                             let var_str = String::from_utf8_lossy(env_var);
                             if var_str.starts_with("SteamAppId=") {
-                                if let Some(id) = var_str.split('=').nth(1) {
-                                    if let Some(game) = id_map.get(id) {
-                                        let mut running_game = game.clone();
-                                        running_game.pid = name_str.parse().ok();
-                                        running.push(running_game);
-                                    }
+                                if let Some(id) = var_str.split('=').nth(1)
+                                    && let Some(game) = id_map.get(id)
+                                {
+                                    let mut running_game = game.clone();
+                                    running_game.pid = name_str.parse().ok();
+                                    running.push(running_game);
                                 }
                                 break;
                             }

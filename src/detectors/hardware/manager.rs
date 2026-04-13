@@ -26,17 +26,14 @@ impl HardwareManager {
 
     #[allow(dead_code)]
     pub fn invalidate(&mut self) {
-
         log::debug!("Hardware cache invalidated due to hotplug event");
         self.cache = None;
         self.rgb_cache = None;
     }
 
     pub fn list_all_devices(&mut self) -> Vec<Device> {
-        if let Some((cache, ts)) = &self.cache {
-            if ts.elapsed() < CACHE_DURATION {
-                return cache.clone();
-            }
+        if let Some((cache, ts)) = &self.cache && ts.elapsed() < CACHE_DURATION {
+            return cache.clone();
         }
 
         let devices: Vec<Device> = self
@@ -51,10 +48,8 @@ impl HardwareManager {
     }
 
     pub fn list_rgb_devices(&mut self) -> Vec<Device> {
-        if let Some((cache, ts)) = &self.rgb_cache {
-            if ts.elapsed() < CACHE_DURATION {
-                return cache.clone();
-            }
+        if let Some((cache, ts)) = &self.rgb_cache && ts.elapsed() < CACHE_DURATION {
+            return cache.clone();
         }
 
         let devices: Vec<Device> = self

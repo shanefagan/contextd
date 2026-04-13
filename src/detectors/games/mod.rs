@@ -5,7 +5,6 @@ pub trait GameDetector: Send + Sync {
     #[allow(dead_code)]
     fn name(&self) -> &str;
 
-
     /// Returns a list of all games installed through this source
     fn list_installed(&self) -> Vec<Game>;
 

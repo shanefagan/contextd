@@ -96,12 +96,12 @@ impl GameDetector for LutrisDetector {
                             let var_str = String::from_utf8_lossy(env_var);
                             // Lutris often sets variables like LUTRIS_GAME_SLUG
                             if var_str.starts_with("LUTRIS_GAME_SLUG=") {
-                                if let Some(slug) = var_str.split('=').nth(1) {
-                                    if let Some(game) = slug_map.get(slug) {
-                                        let mut running_game = game.clone();
-                                        running_game.pid = pid_str.parse().ok();
-                                        running.push(running_game);
-                                    }
+                                if let Some(slug) = var_str.split('=').nth(1)
+                                    && let Some(game) = slug_map.get(slug)
+                                {
+                                    let mut running_game = game.clone();
+                                    running_game.pid = pid_str.parse().ok();
+                                    running.push(running_game);
                                 }
                                 break;
                             }

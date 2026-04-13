@@ -33,23 +33,22 @@ impl HeroicDetector {
 
     fn parse_installed_json(&self, path: &Path, source: &str) -> Vec<Game> {
         let mut games = Vec::new();
-        if let Ok(content) = fs::read_to_string(path) {
-            if let Ok(v) = serde_json::from_str::<Value>(&content) {
-                if let Some(obj) = v.as_object() {
-                    for (id, data) in obj {
-                        let name = data["title"]
-                            .as_str()
-                            .or_else(|| data["app_name"].as_str())
-                            .unwrap_or(id);
+        if let Ok(content) = fs::read_to_string(path)
+            && let Ok(v) = serde_json::from_str::<Value>(&content)
+            && let Some(obj) = v.as_object()
+        {
+            for (id, data) in obj {
+                let name = data["title"]
+                    .as_str()
+                    .or_else(|| data["app_name"].as_str())
+                    .unwrap_or(id);
 
-                        games.push(Game {
-                            name: name.to_string(),
-                            id: Some(id.clone()),
-                            source: source.to_string(),
-                            pid: None,
-                        });
-                    }
-                }
+                games.push(Game {
+                    name: name.to_string(),
+                    id: Some(id.clone()),
+                    source: source.to_string(),
+                    pid: None,
+                });
             }
         }
         games
@@ -103,12 +102,12 @@ impl GameDetector for HeroicDetector {
                             let var_str = String::from_utf8_lossy(env_var);
                             // Heroic sets HEROIC_APP_NAME
                             if var_str.starts_with("HEROIC_APP_NAME=") {
-                                if let Some(id) = var_str.split('=').nth(1) {
-                                    if let Some(game) = id_map.get(id) {
-                                        let mut running_game = game.clone();
-                                        running_game.pid = pid_str.parse().ok();
-                                        running.push(running_game);
-                                    }
+                                if let Some(id) = var_str.split('=').nth(1)
+                                    && let Some(game) = id_map.get(id)
+                                {
+                                    let mut running_game = game.clone();
+                                    running_game.pid = pid_str.parse().ok();
+                                    running.push(running_game);
                                 }
                                 break;
                             }

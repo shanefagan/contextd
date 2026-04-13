@@ -1,6 +1,7 @@
 mod detectors;
 mod contextd {
-    #![allow(nonstandard_style, unused_imports, dead_code)]
+    #![allow(nonstandard_style, unused_imports, dead_code, clippy::all)]
+
     include!(concat!(env!("OUT_DIR"), "/contextd.rs"));
 }
 
@@ -49,7 +50,6 @@ fn main() -> anyhow::Result<()> {
 
     let varlink_service = VarlinkService::new(
         "com.performativenonsense",
-
         "Context Daemon",
         "0.1.0",
         "https://github.com/shanefagan/contextd",
@@ -85,7 +85,6 @@ fn main() -> anyhow::Result<()> {
         ..Default::default()
     };
     varlink::listen(varlink_service, address, &config)?;
-
 
     Ok(())
 }
