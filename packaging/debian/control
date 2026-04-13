@@ -4,7 +4,6 @@ Section: admin
 Priority: optional
 Architecture: amd64
 Maintainer: Shane Fagan <shane@performativenonsense.com>
-
 Depends: systemd, portablectl
 Description: Lightweight game and hardware context daemon (Portable Hybrid)
  A generic, lightweight Linux daemon that exposes process context and 
