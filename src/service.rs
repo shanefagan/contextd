@@ -1,7 +1,7 @@
-use std::sync::{Arc, RwLock};
+use crate::contextd::*;
 use crate::detectors::games::manager::GameManager;
 use crate::detectors::hardware::manager::HardwareManager;
-use crate::contextd::*;
+use std::sync::{Arc, RwLock};
 
 pub struct ContextService {
     pub game_manager: Arc<RwLock<GameManager>>,

@@ -30,11 +30,12 @@ impl GameManager {
             }
         }
 
-        let games: Vec<Game> = self.detectors
+        let games: Vec<Game> = self
+            .detectors
             .iter()
             .flat_map(|d| d.list_installed())
             .collect();
-        
+
         self.installed_cache = Some((games.clone(), Instant::now()));
         games
     }
@@ -46,11 +47,8 @@ impl GameManager {
             }
         }
 
-        let game = self.detectors
-            .iter()
-            .flat_map(|d| d.list_running())
-            .next();
-        
+        let game = self.detectors.iter().flat_map(|d| d.list_running()).next();
+
         self.active_cache = Some((game.clone(), Instant::now()));
         game
     }
@@ -66,9 +64,13 @@ mod tests {
     }
 
     impl GameDetector for MockDetector {
-        fn name(&self) -> &str { "Mock" }
-        fn list_installed(&self) -> Vec<Game> { self.games.clone() }
-        fn list_running(&self) -> Vec<Game> { 
+        fn name(&self) -> &str {
+            "Mock"
+        }
+        fn list_installed(&self) -> Vec<Game> {
+            self.games.clone()
+        }
+        fn list_running(&self) -> Vec<Game> {
             self.running.clone().into_iter().collect()
         }
     }

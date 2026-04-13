@@ -4,22 +4,22 @@ mod contextd {
 }
 mod service;
 
-use std::sync::{Arc, RwLock};
 use std::fs;
+use std::sync::{Arc, RwLock};
 use varlink::VarlinkService;
 
-use crate::detectors::games::steam::SteamDetector;
 use crate::detectors::games::heroic::HeroicDetector;
 use crate::detectors::games::lutris::LutrisDetector;
-use crate::detectors::games::process::ProcessDetector;
 use crate::detectors::games::manager::GameManager;
-use crate::detectors::hardware::udev::UdevDetector;
+use crate::detectors::games::process::ProcessDetector;
+use crate::detectors::games::steam::SteamDetector;
 use crate::detectors::hardware::manager::HardwareManager;
+use crate::detectors::hardware::udev::UdevDetector;
 use crate::service::ContextService;
 
 fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
-    
+
     println!("Context Daemon starting...");
     log::info!("Starting Context Daemon (contextd)...");
 
@@ -33,7 +33,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut hardware_manager = HardwareManager::new();
     hardware_manager.add_detector(Box::new(UdevDetector::new()));
-    
+
     {
         let mut gm = game_manager.write().unwrap();
         let games = gm.list_all_installed();
@@ -41,7 +41,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     let hardware_manager = Arc::new(RwLock::new(hardware_manager));
-    
+
     // Initialize Varlink Service
     let service = ContextService {
         game_manager: Arc::clone(&game_manager),
@@ -57,7 +57,7 @@ fn main() -> anyhow::Result<()> {
     );
 
     let address = "unix:/run/contextd/contextd.socket";
-    
+
     log::info!("Listening on {}", address);
 
     // Remove existing socket if it exists
@@ -67,7 +67,8 @@ fn main() -> anyhow::Result<()> {
     std::thread::spawn(|| {
         use std::os::unix::fs::PermissionsExt;
         let path = "/run/contextd/contextd.socket";
-        for _ in 0..50 { // try for 5 seconds
+        for _ in 0..50 {
+            // try for 5 seconds
             if std::path::Path::new(path).exists() {
                 log::debug!("Fixing socket permissions...");
                 let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o666));

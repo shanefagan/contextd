@@ -1,8 +1,8 @@
 use super::{Game, GameDetector};
+use rusqlite::{Connection, OpenFlags};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use rusqlite::{Connection, OpenFlags};
 
 pub struct LutrisDetector;
 
@@ -35,16 +35,20 @@ impl LutrisDetector {
         let mut games = Vec::new();
         // Open as RO to avoid locking issues with running Lutris
         if let Ok(conn) = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY) {
-            let stmt = conn.prepare("SELECT name, slug, installed FROM games WHERE installed = 1").ok();
+            let stmt = conn
+                .prepare("SELECT name, slug, installed FROM games WHERE installed = 1")
+                .ok();
             if let Some(mut s) = stmt {
-                let rows = s.query_map([], |row| {
-                    Ok(Game {
-                        name: row.get(0)?,
-                        id: Some(row.get(1)?),
-                        source: "Lutris".to_string(),
-                        pid: None,
+                let rows = s
+                    .query_map([], |row| {
+                        Ok(Game {
+                            name: row.get(0)?,
+                            id: Some(row.get(1)?),
+                            source: "Lutris".to_string(),
+                            pid: None,
+                        })
                     })
-                }).ok();
+                    .ok();
 
                 if let Some(r) = rows {
                     for game in r.flatten() {
@@ -76,7 +80,8 @@ impl GameDetector for LutrisDetector {
     fn list_running(&self) -> Vec<Game> {
         let mut running = Vec::new();
         let installed = self.list_installed();
-        let slug_map: HashMap<String, Game> = installed.into_iter()
+        let slug_map: HashMap<String, Game> = installed
+            .into_iter()
             .filter_map(|g| g.id.clone().map(|slug| (slug, g)))
             .collect();
 

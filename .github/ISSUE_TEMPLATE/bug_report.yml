@@ -1,0 +1,44 @@
+name: Bug report
+about: Create a report to help us improve
+title: "[BUG] "
+labels: bug
+assignees: ''
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How can we recreate this issue?
+      placeholder: |
+        1. Start contextd
+        2. Launch game X
+        3. Run contextctl active
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment Info
+      description: |
+        - Linux Distro & Version
+        - Desktop Environment (GNOME, KDE, etc.)
+        - contextd Version (contextctl --version)
+      placeholder: |
+        Arch Linux, GNOME 46, contextd 0.1.0
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: Please paste logs from `journalctl -u contextd`.

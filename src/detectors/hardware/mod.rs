@@ -5,5 +5,5 @@ pub trait HardwareDetector: Send + Sync {
     fn list_devices(&self) -> Vec<Device>;
 }
 
-pub mod udev;
 pub mod manager;
+pub mod udev;

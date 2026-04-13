@@ -11,8 +11,8 @@ pub trait GameDetector: Send + Sync {
     fn list_running(&self) -> Vec<Game>;
 }
 
-pub mod steam;
 pub mod heroic;
 pub mod lutris;
-pub mod process;
 pub mod manager;
+pub mod process;
+pub mod steam;

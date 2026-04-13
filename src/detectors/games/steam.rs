@@ -12,12 +12,12 @@ impl SteamDetector {
 
     fn find_steam_libraries(&self) -> Vec<PathBuf> {
         let mut all_libraries = Vec::new();
-        
+
         // Scan /home for all users to find Steam installations
         if let Ok(entries) = fs::read_dir("/home") {
             for entry in entries.flatten() {
                 let user_home = entry.path();
-                
+
                 // Potential Steam roots
                 let roots = vec![
                     user_home.join(".local/share/Steam"),
@@ -37,20 +37,21 @@ impl SteamDetector {
                 }
             }
         }
-        
+
         all_libraries
     }
 
     fn get_library_folders(&self, steam_path: &Path) -> Vec<PathBuf> {
         let mut folders = vec![steam_path.to_path_buf()];
         let vdf_path = steam_path.join("steamapps/libraryfolders.vdf");
-        
+
         if let Ok(content) = fs::read_to_string(vdf_path) {
             // Basic VDF parser
             for line in content.lines() {
                 let line = line.trim();
                 if line.starts_with("\"path\"") {
-                    let parts: Vec<&str> = line.split('"').filter(|s| !s.trim().is_empty()).collect();
+                    let parts: Vec<&str> =
+                        line.split('"').filter(|s| !s.trim().is_empty()).collect();
                     if parts.len() >= 2 {
                         let path = PathBuf::from(parts[1]);
                         if path.exists() && !folders.contains(&path) {
@@ -60,7 +61,7 @@ impl SteamDetector {
                 }
             }
         }
-        
+
         folders
     }
 
@@ -104,7 +105,7 @@ impl GameDetector for SteamDetector {
     fn list_installed(&self) -> Vec<Game> {
         let mut games = Vec::new();
         let libraries = self.find_steam_libraries();
-        
+
         for library in libraries {
             let steamapps = library.join("steamapps");
             if let Ok(entries) = fs::read_dir(steamapps) {
@@ -127,7 +128,8 @@ impl GameDetector for SteamDetector {
     fn list_running(&self) -> Vec<Game> {
         let mut running = Vec::new();
         let installed = self.list_installed();
-        let id_map: HashMap<String, Game> = installed.into_iter()
+        let id_map: HashMap<String, Game> = installed
+            .into_iter()
             .filter_map(|g| g.id.clone().map(|id| (id, g)))
             .collect();
 
@@ -159,7 +161,7 @@ impl GameDetector for SteamDetector {
 
         running.sort_by_key(|g| g.id.clone());
         running.dedup_by(|a, b| a.id == b.id);
-        
+
         running
     }
 }
