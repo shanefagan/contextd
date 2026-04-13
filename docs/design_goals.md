@@ -11,24 +11,21 @@ Context Daemon is a lightweight Linux utility designed to bridge the gap between
 
 ### 2. Hardware Inventory
 - Expose a list of connected interaction hardware (Keyboards, Mice, Controllers).
-- Provide basic device identification (Vendor ID, Product ID, Name, Bus Type).
-- Monitor for hotplug events to keep the inventory up-to-date.
+- Separate RGB lighting controllers and fans into a dedicated "Aesthetic" inventory to avoid cluttering gaming gear lists.
+- **Poll-on-Demand**: Uses a cached results model (TTL-based) rather than real-time hotplug monitoring. This keeps the daemon lightweight and removes the need for high-privilege `CAP_NET_ADMIN` permissions.
 
 ### 3. Security & IPC Model
-- **Root-level Daemon**: Runs as root to have unrestricted access to `/proc`, `/home` manifests, and `udev`.
+- **Principle of Least Privilege**: Although the daemon is initialized by systemd, it drops almost all root privileges via the Portable Service sandbox. It retains only `CAP_SYS_PTRACE` (for process scanning) and `CAP_DAC_READ_SEARCH` (for reading game manifests in `/home`).
+- **Strict Sandboxing**: Utilizes `ProtectSystem=strict`, `MemoryDenyWriteExecute=yes`, and other systemd hardenings to ensure the daemon cannot be easily compromised.
 - **Public Socket**: Exposes a `0666` permission socket at `/run/contextd/contextd.socket`.
-- **PackageKit-style**: Similar to PackageKit or systemd-networkd, it allows unprivileged user applications to query system-wide context without requiring `sudo` or complex DBus permissions.
-- **Privacy-First**: Only exposes metadata about apps and hardware; no PII or telemetry.
 
 ### 4. Linux-Centric Design
 - Leverage native Linux APIs (udev, procfs) to provide the most efficient implementation.
 - Focus on modern Linux standards (Varlink, Systemd Portable Services).
 
-### 5. Deployment via Portable Services
-- Support `systemd-portabled` for isolated, distro-agnostic deployment.
-- Ship as a self-contained OS tree for easy "attaching" to any modern host.
-
-## Architecture
+## Philosophy
+- **Context NOT Configuration**: `contextd` is a context provider. It reports *what* is happening. It does not attempt to configure hardware, map keys, or manage lighting. Configuration should be handled by specialized client-side tools using the context provided here.
+- **Pull-over-Push**: For hardware state, we prefer simple polling with optimized caching. This avoids the fragility of system-wide hotplug listeners in a containerized world.
 
 - **`contextd` Daemon**: The core service running in the background.
 - **Varlink Interface**: The primary way for clients to interact with the daemon (`io.github.contextd`).

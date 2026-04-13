@@ -13,15 +13,9 @@ Currently, `contextd` performs fresh system scans every time a Varlink method is
 | `GetActiveGame` | Iterates over ALL `/proc/[pid]/environ` files | **Critical (CPU/IO)**. On a busy system, reading thousands of environ files is slow and generates unnecessary load. |
 | `ListDevices` | Scans the `input` subsystem via udev | **Low**. Udev handles the heavy lifting, but we still rebuild the list. |
 
-### Proposed Optimizations
-1. **Caching (Quick Win)**:
-   - Cache results for 5-10 seconds.
-   - Background thread refreshes the cache so the Varlink reply is always instantaneous.
-2. **Event-Driven (Long Term)**:
-   - Use `inotify` to watch Steam/Heroic/Lutris manifest folders. Only re-scan when a file changes.
-   - Use `udev` monitoring instead of enumeration for device changes.
-3. **Process Pulse**:
-   - Instead of scanning all of `/proc`, use a background thread that scans once per second (or more frequent if the "monitor" command is active).
+### 2. Implementation Efficiency
+   - **Zero-Poll Hardware**: Instead of a background monitor thread, hardware is enumerated only on request and cached for 10 seconds. This avoids context switching and kernel interrupts for hardware events the user might not care about.
+   - **Optimized Game Detection**: Instead of scanning all of `/proc` continuously, the daemon uses a 5-second TTL cache for active game results.
 
 ---
 
@@ -53,8 +47,8 @@ We should leverage systemd security features to limit the daemon's powers:
 
 ---
 
-## 3. Implementation Plan (Phase 5)
+## 3. Implementation Status (Current)
 
-1. **Implement Caching**: Move from "Request -> Scan" to "Request -> Cached Data".
-2. **Background Watcher**: Add a background thread that updates the `GameManager` state periodically.
-3. **Cap-Limited Service**: Update the `.service` file to drop unnecessary root privileges.
+1.  **DONE**: Implemented TTL caching for games (5s) and hardware (10s).
+2.  **DONE**: Hardened `systemd` portable configuration with capability bounding (`CAP_SYS_PTRACE`, `CAP_DAC_READ_SEARCH`).
+3.  **DONE**: Dropped real-time `udev` monitoring in favor of zero-overhead polling to keep the daemon lightweight and robust.
