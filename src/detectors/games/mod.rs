@@ -16,5 +16,4 @@ pub trait GameDetector: Send + Sync {
 pub mod heroic;
 pub mod lutris;
 pub mod manager;
-pub mod process;
 pub mod steam;

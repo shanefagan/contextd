@@ -12,7 +12,6 @@ use varlink::VarlinkService;
 use crate::detectors::games::heroic::HeroicDetector;
 use crate::detectors::games::lutris::LutrisDetector;
 use crate::detectors::games::manager::GameManager;
-use crate::detectors::games::process::ProcessDetector;
 use crate::detectors::games::steam::SteamDetector;
 use crate::detectors::hardware::manager::HardwareManager;
 use crate::detectors::hardware::udev::UdevDetector;
@@ -29,7 +28,6 @@ fn main() -> anyhow::Result<()> {
     game_manager.add_detector(Box::new(SteamDetector::new()));
     game_manager.add_detector(Box::new(HeroicDetector::new()));
     game_manager.add_detector(Box::new(LutrisDetector::new()));
-    game_manager.add_detector(Box::new(ProcessDetector::new()));
     let game_manager = Arc::new(RwLock::new(game_manager));
 
     let mut hardware_manager = HardwareManager::new();
@@ -80,8 +78,14 @@ fn main() -> anyhow::Result<()> {
         }
     });
 
-    // varlink::listen(service, address, initial_worker_threads, max_worker_threads, idle_timeout)
-    varlink::listen(varlink_service, address, 1, 10, 0)?;
+    let config = varlink::ListenConfig {
+        initial_worker_threads: 1,
+        max_worker_threads: 10,
+        idle_timeout: 0,
+        ..Default::default()
+    };
+    varlink::listen(varlink_service, address, &config)?;
+
 
     Ok(())
 }

@@ -17,16 +17,16 @@ shift
 
 case $CMD in
     active)
-        varlinkctl call $ADDR io.github.contextd.GetActiveGame "{}"
+        varlinkctl call $ADDR com.performativenonsense.contextd.GetActiveGame "{}"
         ;;
     list-games)
-        varlinkctl call $ADDR io.github.contextd.ListInstalledGames "{}"
+        varlinkctl call $ADDR com.performativenonsense.contextd.ListInstalledGames "{}"
         ;;
     list-devices)
-        varlinkctl call $ADDR io.github.contextd.ListDevices "{}"
+        varlinkctl call $ADDR com.performativenonsense.contextd.ListDevices "{}"
         ;;
     list-rgb)
-        varlinkctl call $ADDR io.github.contextd.ListRGBDevices "{}"
+        varlinkctl call $ADDR com.performativenonsense.contextd.ListRGBDevices "{}"
         ;;
     *)
         usage
