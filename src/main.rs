@@ -40,6 +40,30 @@ fn main() -> anyhow::Result<()> {
     }
 
     let hardware_manager = Arc::new(RwLock::new(hardware_manager));
+    
+    // Start Hardware Hotplug Monitor
+    let hw_manager_for_monitor = Arc::clone(&hardware_manager);
+    std::thread::spawn(move || {
+        use udev::{MonitorBuilder, EventType};
+        if let Ok(monitor) = MonitorBuilder::new() {
+            if let Ok(m) = monitor.match_subsystem("input")
+                .and_then(|mb| mb.match_subsystem("sound"))
+                .and_then(|mb| mb.match_subsystem("hidraw"))
+                .and_then(|mb| mb.listen()) 
+            {
+                log::info!("Started hardware hotplug monitor.");
+                for event in m.iter() {
+                    let action = event.action().unwrap_or_default().to_string_lossy();
+                    if action == "add" || action == "remove" {
+                        log::info!("Hardware changed: {} {}", action, event.sysname().to_string_lossy());
+                        if let Ok(mut mgr) = hw_manager_for_monitor.write() {
+                            mgr.invalidate();
+                        }
+                    }
+                }
+            }
+        }
+    });
 
     // Initialize Varlink Service
     let service = ContextService {

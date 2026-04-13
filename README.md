@@ -17,8 +17,9 @@ A generic, lightweight Linux daemon that exposes process context (e.g., gaming a
   - **Lutris**: Open-source gaming platform for Linux.
 - **Hardware-Aware**: 
   - Groups complex udev nodes into single logical devices.
-  - Identifies Manufacturer/Vendor names.
-  - Reports `uaccess` status for "readiness" checks.
+  - **Main Inventory**: Clean list of only active gaming gear (Mice, Keyboards, Controllers, Audio).
+  - **RGB Inventory**: Dedicated endpoint for system aesthetics (LEDs, Fans, Lighting Strips).
+  - Reports `uaccess` status for "readiness" checks (permission verification).
 - **Modern IPC**: Uses [Varlink](https://varlink.org/) for typed, discoverable, and language-agnostic communication.
 - **systemd Native**: Distributed as a **systemd portable service**, ensuring zero-dependency deployment on any modern Linux distro.
 
@@ -43,8 +44,11 @@ Use the `contextctl` helper to query the daemon:
 # List installed games
 ./scripts/contextctl.sh list-games
 
-# List connected peripherals
+# List connected gaming peripherals
 ./scripts/contextctl.sh list-devices
+
+# List RGB controllers, fans, and lights
+./scripts/contextctl.sh list-rgb
 ```
 
 ## Managing the Service

@@ -92,7 +92,7 @@ impl HardwareDetector for UdevDetector {
 }
 
 impl UdevDetector {
-    fn create_device(&self, device: &udev::Device, path: String, classes: Vec<String>) -> Device {
+    pub(crate) fn create_device(&self, device: &udev::Device, path: String, classes: Vec<String>) -> Device {
         let name = device.property_value("ID_MODEL")
             .or_else(|| device.property_value("NAME"))
             .map(|s| s.to_string_lossy().to_string())
