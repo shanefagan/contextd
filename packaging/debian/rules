@@ -1,0 +1,24 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	unset CFLAGS CXXFLAGS LDFLAGS RUSTFLAGS && cargo build --release
+
+override_dh_auto_install:
+	# Assemble the Portable Root in /opt/contextd
+	mkdir -p debian/contextd/opt/contextd/usr/bin
+	mkdir -p debian/contextd/opt/contextd/usr/lib/systemd/system
+	mkdir -p debian/contextd/opt/contextd/etc
+	mkdir -p debian/contextd/opt/contextd/home
+	mkdir -p debian/contextd/opt/contextd/sys
+	mkdir -p debian/contextd/opt/contextd/run
+	mkdir -p debian/contextd/opt/contextd/proc
+	
+	cp target/release/contextd debian/contextd/opt/contextd/usr/bin/
+	cp packaging/contextd.service debian/contextd/opt/contextd/usr/lib/systemd/system/
+	
+	# Create os-release
+	echo 'ID=contextd' > debian/contextd/opt/contextd/etc/os-release
+	echo 'NAME="Context Daemon Portable Root"' >> debian/contextd/opt/contextd/etc/os-release

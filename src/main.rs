@@ -5,6 +5,7 @@ mod contextd {
 mod service;
 
 use std::sync::{Arc, RwLock};
+use std::fs;
 use varlink::VarlinkService;
 
 use crate::detectors::games::steam::SteamDetector;
@@ -33,11 +34,10 @@ fn main() -> anyhow::Result<()> {
     let mut hardware_manager = HardwareManager::new();
     hardware_manager.add_detector(Box::new(UdevDetector::new()));
     
-    // Discovery log
-    let devices = hardware_manager.list_all_devices();
-    log::info!("Detected {} gaming peripherals:", devices.len());
-    for dev in &devices {
-        log::info!("  - {} by {} (uaccess: {})", dev.name, dev.vendor, dev.has_uaccess);
+    {
+        let mut gm = game_manager.write().unwrap();
+        let games = gm.list_all_installed();
+        log::info!("Detected {} installed games/apps.", games.len());
     }
 
     let hardware_manager = Arc::new(RwLock::new(hardware_manager));
@@ -52,7 +52,7 @@ fn main() -> anyhow::Result<()> {
         "io.github.contextd",
         "Context Daemon",
         "0.1.0",
-        "https://github.com/shane/contextd",
+        "https://github.com/shanefagan/contextd",
         vec![Box::new(contextd::new(Box::new(service)))],
     );
 

@@ -25,14 +25,22 @@ A generic, lightweight Linux daemon that exposes process context (e.g., gaming a
 
 ## Installation (systemd portablectl)
 
-### Build and Install
-Use the provided automation script:
+`contextd` is distributed as a **systemd portable service**, ensuring a hardened, isolated environment that still has visibility into hardware and game libraries.
 
+### Arch Linux (Recommended)
+Build and install via the native package:
 ```bash
-./scripts/install_portable.sh
+cd packaging/arch
+makepkg -sic
 ```
+This installs the portable image to `/opt/contextd` and automatically attaches it using the `trusted` profile.
 
-This script builds the Rust binary, assembles the portable OS tree in `./contextd/`, and attaches the service using `portablectl`.
+### Universal Deployment
+For other distributions, use the production deployment script:
+```bash
+./scripts/deploy.sh
+```
+This script automates the assembly of the portable OS tree in `/opt/contextd` and manages the `portablectl` lifecycle.
 
 ### Interaction
 Use the `contextctl` helper to query the daemon:
@@ -77,6 +85,11 @@ To detach/uninstall:
 ```bash
 sudo portablectl detach contextd
 ```
+
+## Development
+
+- **Repository**: [https://github.com/shanefagan/contextd](https://github.com/shanefagan/contextd)
+- **Author**: Shane Fagan
 
 ## License
 

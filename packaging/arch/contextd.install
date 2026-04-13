@@ -1,0 +1,15 @@
+post_install() {
+  echo ">>> Attaching contextd portable service from /opt..."
+  portablectl attach --now --copy=symlink --profile=trusted /opt/contextd
+}
+
+pre_remove() {
+  echo ">>> Detaching contextd portable service..."
+  portablectl detach --now contextd
+}
+
+post_upgrade() {
+  echo ">>> Reloading contextd portable service from /opt..."
+  portablectl detach contextd --now || true
+  portablectl attach --now --copy=symlink --profile=trusted /opt/contextd
+}

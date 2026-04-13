@@ -1,0 +1,5 @@
+contextd (0.1.0-1) unstable; urgency=low
+
+  * Initial production packaging with /opt based portable infrastructure
+
+ -- Shane Fagan <mail@shanefagan.com>  Mon, 13 Apr 2026 19:12:00 +0100

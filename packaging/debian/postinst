@@ -1,0 +1,21 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+        echo ">>> Attaching contextd portable service from /opt..."
+        # Detach any existing one first if upgrading
+        portablectl detach contextd --now || true
+        portablectl attach --now --copy=symlink --profile=trusted /opt/contextd
+    ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+    ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+    ;;
+esac
+
+exit 0

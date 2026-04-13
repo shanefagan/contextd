@@ -1,6 +1,24 @@
-/target
-Cargo.lock
-**/*.rs.bk
+/target/
 /contextd/
 /portable/
+/build/
+
+# Arch Linux packaging artifacts
+/packaging/arch/src/
+/packaging/arch/pkg/
+/packaging/arch/contextd/
+/packaging/arch/game_linkd/
+*.pkg.tar.zst
+*.pkg.tar.gz
+
+# Database / Temp
+*.db-shm
+*.db-wal
+*.log
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+**/*.rs.bk
 

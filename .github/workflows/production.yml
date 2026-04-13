@@ -1,0 +1,122 @@
+name: Production Build & Release
+
+on:
+  push:
+    branches: [ "master" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
+  NAME: contextd
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libudev-dev
+
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Build
+      run: cargo build --release
+
+    - name: Test
+      run: cargo test --release
+
+    - name: Assemble Portable Tree
+      run: |
+        mkdir -p build/portable/${{ env.NAME }}/usr/bin
+        mkdir -p build/portable/${{ env.NAME }}/usr/lib/systemd/system
+        
+        # Binary
+        cp target/release/${{ env.NAME }} build/portable/${{ env.NAME }}/usr/bin/
+        
+        # Security/OS Info
+        echo "NAME=${{ env.NAME }}" > build/portable/${{ env.NAME }}/usr/lib/os-release
+        echo "ID=${{ env.NAME }}" >> build/portable/${{ env.NAME }}/usr/lib/os-release
+        
+        # Systemd Unit
+        cp packaging/contextd.service build/portable/${{ env.NAME }}/usr/lib/systemd/system/${{ env.NAME }}.service
+
+    - name: Archive Portable Tree
+      run: |
+        cd build/portable
+        tar -czvf ../../${{ env.NAME }}-portable-x86_64.tar.gz ${{ env.NAME }}
+
+    - name: Build DEB Package
+      run: |
+        # Build structure for DEB
+        mkdir -p build/deb/DEBIAN
+        cp packaging/debian/control build/deb/DEBIAN/
+        cp packaging/debian/postinst build/deb/DEBIAN/
+        cp packaging/debian/prerm build/deb/DEBIAN/
+        chmod 755 build/deb/DEBIAN/postinst build/deb/DEBIAN/prerm
+        
+        # Assemble /opt tree
+        mkdir -p build/deb/opt/${{ env.NAME }}/usr/bin
+        mkdir -p build/deb/opt/${{ env.NAME }}/usr/lib/systemd/system
+        mkdir -p build/deb/opt/${{ env.NAME }}/etc
+        mkdir -p build/deb/opt/${{ env.NAME }}/home
+        mkdir -p build/deb/opt/${{ env.NAME }}/sys
+        mkdir -p build/deb/opt/${{ env.NAME }}/run
+        mkdir -p build/deb/opt/${{ env.NAME }}/proc
+        
+        cp target/release/${{ env.NAME }} build/deb/opt/${{ env.NAME }}/usr/bin/
+        cp packaging/contextd.service build/deb/opt/${{ env.NAME }}/usr/lib/systemd/system/
+        
+        echo 'ID=contextd' > build/deb/opt/${{ env.NAME }}/etc/os-release
+        echo 'NAME="Context Daemon Portable Root"' >> build/deb/opt/${{ env.NAME }}/etc/os-release
+        
+        dpkg-deb --build build/deb ${{ env.NAME }}-0.1.0-1_amd64.deb
+
+    - name: Build RPM Package
+      run: |
+        sudo apt-get install -y rpm
+        mkdir -p rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+        
+        # Create source tarball for rpmbuild with correct top-level directory
+        tar -czvf rpmbuild/SOURCES/${{ env.NAME }}-0.1.0.tar.gz --transform "s|^\.|${{ env.NAME }}-0.1.0|" .
+        
+        # Build
+        rpmbuild -ba packaging/rpm/contextd.spec --define "_topdir $(pwd)/rpmbuild" --nodeps
+        cp rpmbuild/RPMS/x86_64/*.rpm .
+
+    - name: Assemble All Artifacts
+      run: |
+        mkdir -p dist
+        # Portable Tarball
+        cd build/portable
+        tar -czvf ../../dist/${{ env.NAME }}-portable-x86_64.tar.gz ${{ env.NAME }}
+        cd ../..
+        
+        # DEB and RPM
+        mv contextd-*.deb dist/ || true
+        mv *.rpm dist/ || true
+        
+        echo "Final dist contents:"
+        ls -R dist/
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.NAME }}-packages
+        path: dist/
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v2
+      with:
+        files: dist/*
+        draft: false
+        prerelease: false

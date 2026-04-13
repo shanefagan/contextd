@@ -1,0 +1,26 @@
+[Unit]
+Description=Context Daemon
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/contextd
+DynamicUser=yes
+SupplementaryGroups=input
+StateDirectory=contextd
+RuntimeDirectory=contextd
+BindReadOnlyPaths=/usr/lib /usr/lib64 /lib /lib64 /etc/ld.so.cache /home /run/udev /sys
+ProtectHome=read-only
+# Capabilities for Hardware/Home/Process discovery
+CapabilityBoundingSet=CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
+AmbientCapabilities=CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
+NoNewPrivileges=yes
+ProtectSystem=strict
+PrivateDevices=no
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+
+[Install]
+WantedBy=multi-user.target
