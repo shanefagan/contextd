@@ -1,4 +1,5 @@
-interface io.github.contextd
+interface com.performativenonsense.contextd
+
 
 # Hardware device type
 type Device (

@@ -1,4 +1,14 @@
+<p align="center">
+  <img src="assets/logo.png" width="200" alt="contextd logo">
+</p>
+
 # Context Daemon (`contextd`)
+
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE.md)
+[![CI](https://github.com/shanefagan/contextd/actions/workflows/ci.yml/badge.svg)](https://github.com/shanefagan/contextd/actions/workflows/ci.yml)
+
+
 
 A generic, lightweight Linux daemon that exposes process context (e.g., gaming activity) and hardware inventory via a Varlink interface.
 
@@ -89,8 +99,10 @@ sudo portablectl detach contextd
 ## Development
 
 - **Repository**: [https://github.com/shanefagan/contextd](https://github.com/shanefagan/contextd)
+
 - **Author**: Shane Fagan
+
 
 ## License
 
-MIT / Apache 2.0
+MIT
