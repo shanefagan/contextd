@@ -1,0 +1,35 @@
+interface io.github.game-linkd
+
+# Hardware device type
+type Device (
+  name: string,
+  vendor_id: string,
+  product_id: string,
+  bus_type: string,
+  path: string,
+  classes: []string
+)
+
+# Game information
+type Game (
+  name: string,
+  id: ?string,
+  source: string,
+  pid: ?int
+)
+
+# Returns the currently active game, if any.
+method GetActiveGame() -> (game: ?Game)
+
+# Lists all installed games detected on the system.
+method ListInstalledGames() -> (games: []Game)
+
+# Lists all connected keyboards, mice, and controllers.
+method ListDevices() -> (devices: []Device)
+
+# Subscribe to events (game start/stop, device plug/unplug).
+method Subscribe() -> (
+  event_type: string,
+  game: ?Game,
+  device: ?Device
+)
