@@ -1,6 +1,8 @@
 # Context Daemon (`contextd`)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE.md)
+[![CI](https://github.com/shanefagan/contextd/actions/workflows/ci.yml/badge.svg)](https://github.com/shanefagan/contextd/actions/workflows/ci.yml)
+
 
 
 A generic, lightweight Linux daemon that exposes process context (e.g., gaming activity) and hardware inventory via a Varlink interface.
