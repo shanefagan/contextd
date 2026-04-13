@@ -7,7 +7,7 @@ This document provides guidance for AI Agents (LLMs, Automations, and Copilots) 
 If you are an AI assistant working on this repository or a project that consumes its data, here is what you need to know:
 
 ### 1. The Context Model
-`contextd` is a **read-only context provider**. It does not perform actions or change system state. It answers the question: *"What is the user doing right now and what hardware are they using?"*
+`contextd` is a **read-only context provider**. It does not perform actions or change system state. It answers the question: *"What is the user doing right now and what hardware are they using?"* and mostly is focused on gaming use cases, configuration of gaming peripherals like profile switching based on game configs and ensuring for example the hardware is ready to access for user level applications.
 
 ### 2. Available Interfaces
 The daemon exposes its state via **Varlink** on the Unix socket `/run/contextd/contextd.socket`.
@@ -21,6 +21,7 @@ Key methods to call:
 - **Polling is Expected**: The daemon uses a internal 10-second cache. You can poll frequently without impacting system performance.
 - **Unprivileged Access**: No root/sudo is required to query the socket.
 - **Data Integrity**: Process IDs and hardware nodes are verified by the daemon before being reported.
+- **Only update when asked**: Do not update the daemon unless explicitly asked to do so.
 
 ## 🛰️ Use Cases for Agents
 
