@@ -24,6 +24,11 @@ impl VarlinkInterface for ContextService {
         call.reply(manager.list_all_devices())
     }
 
+    fn list_rgbdevices(&self, call: &mut dyn Call_ListRGBDevices) -> varlink::Result<()> {
+        let mut manager = self.hardware_manager.write().unwrap();
+        call.reply(manager.list_rgb_devices())
+    }
+
     fn subscribe(&self, call: &mut dyn Call_Subscribe) -> varlink::Result<()> {
         if call.is_oneway() {
             return Ok(());

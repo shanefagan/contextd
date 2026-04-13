@@ -29,6 +29,9 @@ method ListInstalledGames() -> (games: []Game)
 # Lists all connected keyboards, mice, and controllers.
 method ListDevices() -> (devices: []Device)
 
+# Lists all RGB controllers, lighting strips, and fans.
+method ListRGBDevices() -> (devices: []Device)
+
 # Subscribe to events (game start/stop, device plug/unplug).
 method Subscribe() -> (
   event_type: string,

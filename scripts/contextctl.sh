@@ -4,7 +4,7 @@
 ADDR="unix:/run/contextd/contextd.socket"
 
 usage() {
-    echo "Usage: $0 [active|list-games|list-devices|monitor]"
+    echo "Usage: $0 [active|list-games|list-devices|list-rgb|monitor]"
     exit 1
 }
 
@@ -24,6 +24,9 @@ case $CMD in
         ;;
     list-devices)
         varlinkctl call $ADDR io.github.contextd.ListDevices "{}"
+        ;;
+    list-rgb)
+        varlinkctl call $ADDR io.github.contextd.ListRGBDevices "{}"
         ;;
     monitor)
         # Use -E for 'more' and infinity timeout
