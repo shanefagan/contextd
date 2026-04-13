@@ -24,12 +24,8 @@ case "$1" in
         varlinkctl call "${SOCKET}" "${INTERFACE}.ListDevices" '{}'
         ;;
     monitor)
-        # Try 'monitor' first (systemd 255+), fallback to 'call --more'
-        if varlinkctl monitor --help > /dev/null 2>&1; then
-            varlinkctl monitor "${SOCKET}" "${INTERFACE}.Subscribe" '{}'
-        else
-            varlinkctl call "${SOCKET}" "${INTERFACE}.Subscribe" '{}' --more=yes
-        fi
+        # Use -E (short for --more --timeout=infinity) for monitoring events
+        varlinkctl call "${SOCKET}" "${INTERFACE}.Subscribe" '{}' -E
         ;;
     *)
         usage

@@ -11,37 +11,17 @@ pub struct GameLinkdService {
 impl VarlinkInterface for GameLinkdService {
     fn get_active_game(&self, call: &mut dyn Call_GetActiveGame) -> varlink::Result<()> {
         let manager = self.game_manager.read().unwrap();
-        let game = manager.get_active_game().map(|g| Game {
-            name: g.name,
-            id: g.id,
-            source: g.source,
-            pid: g.pid.map(|p| p as i64),
-        });
-        call.reply(game)
+        call.reply(manager.get_active_game())
     }
 
     fn list_installed_games(&self, call: &mut dyn Call_ListInstalledGames) -> varlink::Result<()> {
         let manager = self.game_manager.read().unwrap();
-        let games = manager.list_all_installed().into_iter().map(|g| Game {
-            name: g.name,
-            id: g.id,
-            source: g.source,
-            pid: g.pid.map(|p| p as i64),
-        }).collect();
-        call.reply(games)
+        call.reply(manager.list_all_installed())
     }
 
     fn list_devices(&self, call: &mut dyn Call_ListDevices) -> varlink::Result<()> {
         let manager = self.hardware_manager.read().unwrap();
-        let devices = manager.list_all_devices().into_iter().map(|d| Device {
-            name: d.name,
-            vendor_id: d.vendor_id,
-            product_id: d.product_id,
-            bus_type: d.bus_type,
-            path: d.path,
-            classes: d.classes,
-        }).collect();
-        call.reply(devices)
+        call.reply(manager.list_all_devices())
     }
 
     fn subscribe(&self, call: &mut dyn Call_Subscribe) -> varlink::Result<()> {

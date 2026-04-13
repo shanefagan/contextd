@@ -3,11 +3,13 @@ interface io.github.game-linkd
 # Hardware device type
 type Device (
   name: string,
+  vendor: string,
   vendor_id: string,
   product_id: string,
   bus_type: string,
   path: string,
-  classes: []string
+  classes: []string,
+  has_uaccess: bool
 )
 
 # Game information

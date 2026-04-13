@@ -27,6 +27,14 @@ fn main() -> anyhow::Result<()> {
 
     let mut hardware_manager = HardwareManager::new();
     hardware_manager.add_detector(Box::new(UdevDetector::new()));
+    
+    // Discovery log
+    let devices = hardware_manager.list_all_devices();
+    log::info!("Detected {} gaming peripherals:", devices.len());
+    for dev in &devices {
+        log::info!("  - {} by {} (uaccess: {})", dev.name, dev.vendor, dev.has_uaccess);
+    }
+
     let hardware_manager = Arc::new(RwLock::new(hardware_manager));
 
     // Initialize Varlink Service

@@ -1,14 +1,4 @@
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Device {
-    pub name: String,
-    pub vendor_id: String,
-    pub product_id: String,
-    pub bus_type: String,
-    pub path: String,
-    pub classes: Vec<String>,
-}
+pub use crate::game_linkd::Device;
 
 pub trait HardwareDetector: Send + Sync {
     fn name(&self) -> &str;

@@ -1,12 +1,4 @@
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Game {
-    pub name: String,
-    pub id: Option<String>,
-    pub source: String,
-    pub pid: Option<i32>,
-}
+pub use crate::game_linkd::Game;
 
 pub trait GameDetector: Send + Sync {
     /// Unique name of the detector (e.g., "Steam", "Lutris")
