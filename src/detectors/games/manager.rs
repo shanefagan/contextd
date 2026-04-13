@@ -24,33 +24,31 @@ impl GameManager {
     }
 
     pub fn list_all_installed(&mut self) -> Vec<Game> {
-        if let Some((cache, ts)) = &self.installed_cache {
-            if ts.elapsed() < CACHE_DURATION {
-                return cache.clone();
-            }
+        if let Some((cache, ts)) = &self.installed_cache
+            && ts.elapsed() < CACHE_DURATION
+        {
+            return cache.clone();
         }
 
-        let games: Vec<Game> = self.detectors
+        let games: Vec<Game> = self
+            .detectors
             .iter()
             .flat_map(|d| d.list_installed())
             .collect();
-        
+
         self.installed_cache = Some((games.clone(), Instant::now()));
         games
     }
 
     pub fn get_active_game(&mut self) -> Option<Game> {
-        if let Some((cache, ts)) = &self.active_cache {
-            if ts.elapsed() < CACHE_DURATION {
-                return cache.clone();
-            }
+        if let Some((cache, ts)) = &self.active_cache
+            && ts.elapsed() < CACHE_DURATION
+        {
+            return cache.clone();
         }
 
-        let game = self.detectors
-            .iter()
-            .flat_map(|d| d.list_running())
-            .next();
-        
+        let game = self.detectors.iter().flat_map(|d| d.list_running()).next();
+
         self.active_cache = Some((game.clone(), Instant::now()));
         game
     }
@@ -66,9 +64,13 @@ mod tests {
     }
 
     impl GameDetector for MockDetector {
-        fn name(&self) -> &str { "Mock" }
-        fn list_installed(&self) -> Vec<Game> { self.games.clone() }
-        fn list_running(&self) -> Vec<Game> { 
+        fn name(&self) -> &str {
+            "Mock"
+        }
+        fn list_installed(&self) -> Vec<Game> {
+            self.games.clone()
+        }
+        fn list_running(&self) -> Vec<Game> {
             self.running.clone().into_iter().collect()
         }
     }

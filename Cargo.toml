@@ -2,20 +2,22 @@
 name = "contextd"
 version = "0.1.0"
 edition = "2024"
-authors = ["Shane Fagan <shanefagan@example.com>"]
+authors = ["Shane Fagan <shane@performativenonsense.com>"]
 homepage = "https://github.com/shanefagan/contextd"
 repository = "https://github.com/shanefagan/contextd"
+license = "MIT"
+
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-varlink = "10.0"
+varlink = "13.0"
 udev = "0.9" # For future hardware inventory
 log = "0.4"
 env_logger = "0.11"
 anyhow = "1.0"
 serde_derive = "1.0"
-rusqlite = { version = "0.31", features = ["bundled"] }
+rusqlite = { version = "0.39", features = ["bundled"] }
 
 [build-dependencies]
-varlink_generator = "10.0"
+varlink_generator = "13.0"

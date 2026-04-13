@@ -5,7 +5,7 @@ Context Daemon is a lightweight Linux utility designed to bridge the gap between
 ## Core Objectives
 
 ### 1. Unified Session Detection
-- Detect when a high-intensity game or application is running regardless of the launcher (Steam, Lutris, Heroic, Flatpaks, or standalone binaries).
+- Detect when a high-intensity game or application is running through supported launchers (Steam, Lutris, Heroic).
 - Provide metadata about the running session (Title, AppID if applicable, Process ID).
 - Avoid complex "integrations" and focus on reporting raw state.
 

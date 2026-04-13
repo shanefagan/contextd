@@ -28,11 +28,21 @@ impl HardwareDetector for UdevDetector {
 
                 if is_mouse || is_kbd || is_joy {
                     let mut classes = Vec::new();
-                    if is_mouse { classes.push("mouse".to_string()); }
-                    if is_kbd { classes.push("keyboard".to_string()); }
-                    if is_joy { classes.push("controller".to_string()); }
+                    if is_mouse {
+                        classes.push("mouse".to_string());
+                    }
+                    if is_kbd {
+                        classes.push("keyboard".to_string());
+                    }
+                    if is_joy {
+                        classes.push("controller".to_string());
+                    }
 
-                    devices.push(self.create_device(&device, devname.to_string_lossy().to_string(), classes));
+                    devices.push(self.create_device(
+                        &device,
+                        devname.to_string_lossy().to_string(),
+                        classes,
+                    ));
                 }
             }
         }
@@ -44,7 +54,11 @@ impl HardwareDetector for UdevDetector {
             // We only care about base cards, not individual PCM/control nodes for the list
             if device.sysname().to_string_lossy().starts_with("card") {
                 let classes = vec!["audio".to_string()];
-                devices.push(self.create_device(&device, device.syspath().to_string_lossy().to_string(), classes));
+                devices.push(self.create_device(
+                    &device,
+                    device.syspath().to_string_lossy().to_string(),
+                    classes,
+                ));
             }
         }
 
@@ -55,7 +69,11 @@ impl HardwareDetector for UdevDetector {
             if let Some(devname) = device.devnode() {
                 // We just want to know it's a HID device
                 let classes = vec!["hid".to_string()];
-                devices.push(self.create_device(&device, devname.to_string_lossy().to_string(), classes));
+                devices.push(self.create_device(
+                    &device,
+                    devname.to_string_lossy().to_string(),
+                    classes,
+                ));
             }
         }
 
@@ -92,37 +110,51 @@ impl HardwareDetector for UdevDetector {
 }
 
 impl UdevDetector {
-    pub(crate) fn create_device(&self, device: &udev::Device, path: String, classes: Vec<String>) -> Device {
-        let name = device.property_value("ID_MODEL")
+    pub(crate) fn create_device(
+        &self,
+        device: &udev::Device,
+        path: String,
+        classes: Vec<String>,
+    ) -> Device {
+        let name = device
+            .property_value("ID_MODEL")
             .or_else(|| device.property_value("NAME"))
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| "Unknown Device".to_string());
 
-        let vendor = device.property_value("ID_VENDOR")
+        let vendor = device
+            .property_value("ID_VENDOR")
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| "Generic".to_string());
 
-        let vendor_id = device.property_value("ID_VENDOR_ID")
+        let vendor_id = device
+            .property_value("ID_VENDOR_ID")
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| "0000".to_string());
 
-        let product_id = device.property_value("ID_MODEL_ID")
+        let product_id = device
+            .property_value("ID_MODEL_ID")
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| "0000".to_string());
 
-        let bus_type = device.property_value("ID_BUS")
+        let bus_type = device
+            .property_value("ID_BUS")
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_default();
 
-        let mut has_uaccess = device.property_value("TAGS")
+        let mut has_uaccess = device
+            .property_value("TAGS")
             .map(|s| s.to_string_lossy().contains("uaccess"))
             .unwrap_or(false);
-        
+
         // Also check parents (sometimes the tag is on the USB device node but not the child interface)
         if !has_uaccess {
             let mut parent = device.parent();
             while let Some(p) = parent {
-                if p.property_value("TAGS").map(|s| s.to_string_lossy().contains("uaccess")).unwrap_or(false) {
+                if p.property_value("TAGS")
+                    .map(|s| s.to_string_lossy().contains("uaccess"))
+                    .unwrap_or(false)
+                {
                     has_uaccess = true;
                     break;
                 }
@@ -135,7 +167,11 @@ impl UdevDetector {
         if model_lower.contains("wheel") {
             classes.push("wheel".to_string());
         }
-        if model_lower.contains("stick") || model_lower.contains("hotas") || model_lower.contains("throttle") || model_lower.contains("yoke") {
+        if model_lower.contains("stick")
+            || model_lower.contains("hotas")
+            || model_lower.contains("throttle")
+            || model_lower.contains("yoke")
+        {
             classes.push("flight_stick".to_string());
         }
 
