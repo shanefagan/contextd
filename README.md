@@ -92,7 +92,9 @@ sudo portablectl detach contextd
 ## Development
 
 - **Repository**: [https://github.com/shanefagan/contextd](https://github.com/shanefagan/contextd)
+
 - **Author**: Shane Fagan
+
 
 ## License
 

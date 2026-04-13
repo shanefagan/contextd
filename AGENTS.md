@@ -13,9 +13,9 @@ If you are an AI assistant working on this repository or a project that consumes
 The daemon exposes its state via **Varlink** on the Unix socket `/run/contextd/contextd.socket`.
 
 Key methods to call:
-- `com.shanefagan.contextd.Active()`: Returns the currently foregrounded game or high-performance app.
-- `com.shanefagan.contextd.ListDevices()`: Returns a list of connected interaction hardware (Mice, Keyboards, Controllers).
-- `com.shanefagan.contextd.ListRgb()`: Returns a list of addressable lighting/aesthetic hardware.
+- `com.performativenonsense.contextd.Active()`: Returns the currently foregrounded game or high-performance app.
+- `com.performativenonsense.contextd.ListDevices()`: Returns a list of connected interaction hardware (Mice, Keyboards, Controllers).
+- `com.performativenonsense.contextd.ListRgb()`: Returns a list of addressable lighting/aesthetic hardware.
 
 ### 3. Integration Philosophy
 - **Polling is Expected**: The daemon uses a internal 10-second cache. You can poll frequently without impacting system performance.

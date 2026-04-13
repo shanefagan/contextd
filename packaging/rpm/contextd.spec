@@ -2,8 +2,10 @@ Name:            contextd
 Version:         0.1.0
 Release:         1%{?dist}
 Summary:         Lightweight game and hardware context daemon (Portable Hybrid)
-License:         MIT or Apache-2.0
+License:         MIT
 URL:             https://github.com/shanefagan/contextd
+
+
 Source0:         %{name}-%{version}.tar.gz
 
 BuildRequires:   cargo, systemd-devel, git
@@ -63,5 +65,5 @@ fi
 /opt/contextd/
 
 %changelog
-* Mon Apr 13 2026 Shane Fagan <mail@shanefagan.com> - 0.1.0-1
+* Mon Apr 13 2026 Shane Fagan <shane@performativenonsense.com> - 0.1.0-1
 - Initial production packaging with /opt based portable infrastructure

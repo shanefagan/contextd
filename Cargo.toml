@@ -2,7 +2,7 @@
 name = "contextd"
 version = "0.1.0"
 edition = "2024"
-authors = ["Shane Fagan <shanefagan@example.com>"]
+authors = ["Shane Fagan <shane@performativenonsense.com>"]
 homepage = "https://github.com/shanefagan/contextd"
 repository = "https://github.com/shanefagan/contextd"
 license = "MIT"

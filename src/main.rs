@@ -50,7 +50,8 @@ fn main() -> anyhow::Result<()> {
     };
 
     let varlink_service = VarlinkService::new(
-        "io.github.contextd",
+        "com.performativenonsense",
+
         "Context Daemon",
         "0.1.0",
         "https://github.com/shanefagan/contextd",
