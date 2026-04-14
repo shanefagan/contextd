@@ -11,13 +11,20 @@
 - Open an issue titled `[Feature] Description`.
 - Describe the use case and why it belongs in a generic context daemon.
 
+### 💻 Development Environment
+To maintain code quality, we use git hooks to run `cargo fmt` and `cargo clippy` before every commit. You can set them up with:
+```bash
+bash scripts/install-hooks.sh
+```
+This ensures your PRs are clean and reduces CI failures.
+
 ### 🛠️ Pull Requests
 1. **Fork the repo** and create your branch from `main`.
 2. **Setup**: Run `./scripts/install-hooks.sh` to install local git hooks that automatically verify formatting and linting before commits.
 3. **Rust Style**: Ensure your code is formatted with `cargo fmt`.
 4. **Varlink Changes**: If you modify the `.varlink` interface, ensure you run the generator to update the Rust bindings.
 5. **Testing**: Run `cargo test` before submitting.
-5. **Documentation**: Update `README.md` or files in `docs/` if you add new features.
+6. **Documentation**: Update `README.md` or files in `docs/` if you add new features.
 
 ## ⚖️ License
 By contributing, you agree that your contributions will be licensed under the project's **MIT License**.
