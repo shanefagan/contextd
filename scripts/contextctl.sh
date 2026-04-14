@@ -4,7 +4,7 @@
 ADDR="unix:/run/contextd/contextd.socket"
 
 usage() {
-    echo "Usage: $0 [active|list-games|list-devices|list-rgb]"
+    echo "Usage: $0 [active|list-games|list-devices|list-rgb|diagnostics]"
     exit 1
 }
 

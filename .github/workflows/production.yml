@@ -127,16 +127,18 @@ jobs:
       run: |
         # Update version in spec file
         RAW_VER=${VERSION#v}
-        sed -i "s/^Version:.*/Version: ${RAW_VER}/" packaging/rpm/contextd.spec
+        # RPM Version cannot contain hyphens, replace with dots for pre-releases
+        RPM_VER=$(echo $RAW_VER | tr '-' '.')
+        sed -i "s/^Version:.*/Version: ${RPM_VER}/" packaging/rpm/contextd.spec
         
         mkdir -p rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-        tar -czvf rpmbuild/SOURCES/${{ env.NAME }}-${RAW_VER}.tar.gz \
+        tar -czvf rpmbuild/SOURCES/${{ env.NAME }}-${RPM_VER}.tar.gz \
           --exclude="./target" \
           --exclude="./rpmbuild" \
           --exclude="./dist" \
           --exclude="./.git" \
           --exclude="./.github" \
-          --transform "s|^\.|${{ env.NAME }}-${RAW_VER}|" .
+          --transform "s|^\.|${{ env.NAME }}-${RPM_VER}|" .
         
         rpmbuild -ba packaging/rpm/contextd.spec --define "_topdir $(pwd)/rpmbuild" --nodeps
         cp rpmbuild/RPMS/x86_64/*.rpm dist/${{ env.NAME }}-${{ env.VERSION }}-x86_64.rpm

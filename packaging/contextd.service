@@ -8,7 +8,7 @@ DynamicUser=yes
 SupplementaryGroups=input
 StateDirectory=contextd
 RuntimeDirectory=contextd
-BindReadOnlyPaths=/usr/lib /usr/lib64 /lib /lib64 /etc/ld.so.cache /home /run/udev /sys
+BindReadOnlyPaths=/usr/lib /usr/lib64 /lib /lib64 /etc/ld.so.cache /home /run/udev /sys /usr/share/hwdata /usr/share/vulkan /usr/share/glvnd
 ProtectHome=read-only
 # Capabilities for Hardware/Home/Process discovery
 CapabilityBoundingSet=CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
