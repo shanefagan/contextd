@@ -1,0 +1,27 @@
+interface com.performativenonsense.contextd.rgb.Observer
+
+# RGBA Color representation
+type Color (
+  r: int,
+  g: int,
+  b: int,
+  a: int
+)
+
+# A square matrix of colors (N x N)
+type Matrix (
+  size: int,
+  data: []Color
+)
+
+# Returns the current ambient lighting context.
+method GetLightingContext() -> (
+  main_color: Color,
+  matrix: ?Matrix
+)
+
+# Subscribes to lighting context updates.
+method SubscribeLightingContext() -> (
+  main_color: Color,
+  matrix: ?Matrix
+)

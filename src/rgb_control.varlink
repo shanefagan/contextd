@@ -1,0 +1,30 @@
+interface com.performativenonsense.contextd.rgb.Control
+
+# RGBA Color representation
+type Color (
+  r: int,
+  g: int,
+  b: int,
+  a: int
+)
+
+# A square matrix of colors (N x N)
+type Matrix (
+  size: int,
+  data: []Color
+)
+
+# Sets the current lighting context.
+method SetLightingContext(
+  main_color: ?Color,
+  matrix: ?Matrix
+) -> ()
+
+# The Matrix size requested is too large (Maximum is 420x420)
+error MatrixTooLarge(max_size: int)
+
+# The Matrix data length does not match size*size
+error InvalidMatrixSize(size: int, data_len: int)
+
+# A color component value is outside the valid range (0-255)
+error InvalidColorValue(component: string, value: int)

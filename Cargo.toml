@@ -19,6 +19,7 @@ anyhow = "1.0"
 serde_derive = "1.0"
 rusqlite = { version = "0.39", features = ["bundled"] }
 sysinfo = "0.30"
+libc = "0.2"
 
 [build-dependencies]
 varlink_generator = "13.0"

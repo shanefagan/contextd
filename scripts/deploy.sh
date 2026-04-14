@@ -22,7 +22,8 @@ sudo mkdir -p "${INSTALL_DIR}/run"
 sudo mkdir -p "${INSTALL_DIR}/proc"
 
 sudo install -m 755 target/release/contextd "${INSTALL_DIR}/usr/bin/"
-sudo install -m 644 "${SERVICE_FILE}" "${INSTALL_DIR}/usr/lib/systemd/system/"
+sudo install -m 644 packaging/contextd.service "${INSTALL_DIR}/usr/lib/systemd/system/"
+sudo install -m 644 packaging/contextd-rgb.service "${INSTALL_DIR}/usr/lib/systemd/system/"
 
 # Create os-release
 cat <<EOF | sudo tee "${INSTALL_DIR}/etc/os-release" > /dev/null

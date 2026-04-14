@@ -19,9 +19,10 @@ mkdir -p "${BUILD_DIR}/sys"
 mkdir -p "${BUILD_DIR}/run"
 mkdir -p "${BUILD_DIR}/proc"
 
-# Copy binary and service
+# Copy binary and services
 cp "${BIN_PATH}" "${BUILD_DIR}/usr/bin/"
 cp "packaging/contextd.service" "${BUILD_DIR}/usr/lib/systemd/system/"
+cp "packaging/contextd-rgb.service" "${BUILD_DIR}/usr/lib/systemd/system/"
 
 # BUNDLE DEPENDENCIES
 # This is the "Hardened Portable" strategy: carry your own libs.
