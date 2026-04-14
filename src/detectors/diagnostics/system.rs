@@ -1,7 +1,7 @@
-use sysinfo::System;
 use crate::contextd::{Diagnostics, Gpu};
 use std::fs;
 use std::path::Path;
+use sysinfo::System;
 
 pub struct SystemDiagnostics;
 
@@ -14,18 +14,24 @@ impl SystemDiagnostics {
         let ram_used = ((sys.total_memory() - sys.available_memory()) / 1024 / 1024) as i64;
 
         let cpu_count = sys.cpus().len() as i64;
-        let cpu_model = sys.cpus().first()
+        let cpu_model = sys
+            .cpus()
+            .first()
             .map(|c| c.brand().to_string())
             .unwrap_or_else(|| "Unknown".to_string());
 
         let kernel_version = System::kernel_version().unwrap_or_else(|| "Unknown".to_string());
-        let os_release = format!("{} {}", System::name().unwrap_or_default(), System::os_version().unwrap_or_default());
+        let os_release = format!(
+            "{} {}",
+            System::name().unwrap_or_default(),
+            System::os_version().unwrap_or_default()
+        );
 
         // Heuristic for Vulkan/OpenGL
-        let vulkan_supported = Path::new("/usr/lib/libvulkan.so.1").exists() 
+        let vulkan_supported = Path::new("/usr/lib/libvulkan.so.1").exists()
             || Path::new("/usr/lib/x86_64-linux-gnu/libvulkan.so.1").exists()
             || Path::new("/usr/lib64/libvulkan.so.1").exists();
-        
+
         let opengl_supported = Path::new("/usr/lib/libGL.so.1").exists()
             || Path::new("/usr/lib/x86_64-linux-gnu/libGL.so.1").exists()
             || Path::new("/usr/lib64/libGL.so.1").exists();
@@ -53,7 +59,7 @@ impl SystemDiagnostics {
 
     fn detect_gpus() -> Vec<Gpu> {
         let mut gpus = Vec::new();
-        
+
         // Basic GPU detection via DRM sysfs
         let drm_path = "/sys/class/drm";
         if let Ok(entries) = fs::read_dir(drm_path) {
@@ -62,11 +68,11 @@ impl SystemDiagnostics {
                 if name.starts_with("card") && !name.contains('-') {
                     // This is a base card node
                     let device_path = entry.path().join("device");
-                    
+
                     let vendor = fs::read_to_string(device_path.join("vendor"))
                         .map(|s| s.trim().to_string())
                         .unwrap_or_else(|_| "Unknown".to_string());
-                    
+
                     let device_id = fs::read_to_string(device_path.join("device"))
                         .map(|s| s.trim().to_string())
                         .unwrap_or_else(|_| "Unknown".to_string());
@@ -89,7 +95,8 @@ impl SystemDiagnostics {
                         "0x10de" => "NVIDIA",
                         "0x8086" => "Intel",
                         _ => &vendor,
-                    }.to_string();
+                    }
+                    .to_string();
 
                     let driver = fs::read_link(device_path.join("driver"))
                         .ok()

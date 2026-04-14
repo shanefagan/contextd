@@ -1,5 +1,4 @@
-pub mod system;
 pub mod manager;
+pub mod system;
 
 pub use system::SystemDiagnostics;
-pub use manager::DiagnosticsManager;

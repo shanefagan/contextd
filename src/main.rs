@@ -10,13 +10,13 @@ mod service;
 use std::sync::{Arc, RwLock};
 use varlink::VarlinkService;
 
+use crate::detectors::diagnostics::manager::DiagnosticsManager;
 use crate::detectors::games::heroic::HeroicDetector;
 use crate::detectors::games::lutris::LutrisDetector;
 use crate::detectors::games::manager::GameManager;
 use crate::detectors::games::steam::SteamDetector;
 use crate::detectors::hardware::manager::HardwareManager;
 use crate::detectors::hardware::udev::UdevDetector;
-use crate::detectors::diagnostics::manager::DiagnosticsManager;
 use crate::service::ContextService;
 
 fn main() -> anyhow::Result<()> {
