@@ -13,9 +13,10 @@
 
 ### 🛠️ Pull Requests
 1. **Fork the repo** and create your branch from `main`.
-2. **Rust Style**: Ensure your code is formatted with `cargo fmt`.
-3. **Varlink Changes**: If you modify the `.varlink` interface, ensure you run the generator to update the Rust bindings.
-4. **Testing**: Run `cargo test` before submitting.
+2. **Setup**: Run `./scripts/install-hooks.sh` to install local git hooks that automatically verify formatting and linting before commits.
+3. **Rust Style**: Ensure your code is formatted with `cargo fmt`.
+4. **Varlink Changes**: If you modify the `.varlink` interface, ensure you run the generator to update the Rust bindings.
+5. **Testing**: Run `cargo test` before submitting.
 5. **Documentation**: Update `README.md` or files in `docs/` if you add new features.
 
 ## ⚖️ License
