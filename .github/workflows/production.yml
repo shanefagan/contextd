@@ -12,20 +12,74 @@ env:
   NAME: contextd
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-
 permissions:
   contents: write
 
 jobs:
+  test:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+
+      - name: Run tests
+        run: cargo test --verbose
+
+  security_audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions-rs/audit-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
   build:
+    name: Package & Release
+    needs: [test, security_audit]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
 
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libudev-dev
+        sudo apt-get install -y libudev-dev rpm
+
+    - name: Set Version
+      id: vars
+      run: |
+        if [[ $GITHUB_REF == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/}
+        else
+          VERSION="0.0.0-dev"
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
 
     - name: Rust Cache
       uses: Swatinem/rust-cache@v2
@@ -33,31 +87,22 @@ jobs:
     - name: Build
       run: cargo build --release
 
-    - name: Test
-      run: cargo test --release
+    - name: Prepare Artifacts Directory
+      run: mkdir -p dist
 
-    - name: Assemble Portable Tree
+    - name: Build Portable Tarball
       run: |
-        mkdir -p build/portable/${{ env.NAME }}/usr/bin
-        mkdir -p build/portable/${{ env.NAME }}/usr/lib/systemd/system
-        
-        # Binary
-        cp target/release/${{ env.NAME }} build/portable/${{ env.NAME }}/usr/bin/
-        
-        # Security/OS Info
-        echo "NAME=${{ env.NAME }}" > build/portable/${{ env.NAME }}/usr/lib/os-release
-        echo "ID=${{ env.NAME }}" >> build/portable/${{ env.NAME }}/usr/lib/os-release
-        
-        # Systemd Unit
-        cp packaging/contextd.service build/portable/${{ env.NAME }}/usr/lib/systemd/system/${{ env.NAME }}.service
-
-    - name: Archive Portable Tree
-      run: |
-        cd build/portable
-        tar -czvf ../../${{ env.NAME }}-portable-x86_64.tar.gz ${{ env.NAME }}
+        # Use the assembly script which bundles dependencies
+        ./scripts/package-portable.sh build/portable target/release/contextd
+        cd build
+        tar -czvf ../dist/${{ env.NAME }}-${{ env.VERSION }}-x86_64-portable.tar.gz portable/
+        cd ..
 
     - name: Build DEB Package
       run: |
+        # Update version in control file
+        sed -i "s/^Version:.*/Version: ${VERSION#v}/" packaging/debian/control
+        
         # Build structure for DEB
         mkdir -p build/deb/DEBIAN
         cp packaging/debian/control build/deb/DEBIAN/
@@ -65,60 +110,46 @@ jobs:
         cp packaging/debian/prerm build/deb/DEBIAN/
         chmod 755 build/deb/DEBIAN/postinst build/deb/DEBIAN/prerm
         
-        # Assemble /opt tree
+        # Use /opt tree for portable hybrid approach
         mkdir -p build/deb/opt/${{ env.NAME }}/usr/bin
         mkdir -p build/deb/opt/${{ env.NAME }}/usr/lib/systemd/system
-        mkdir -p build/deb/opt/${{ env.NAME }}/etc
-        mkdir -p build/deb/opt/${{ env.NAME }}/home
-        mkdir -p build/deb/opt/${{ env.NAME }}/sys
-        mkdir -p build/deb/opt/${{ env.NAME }}/run
-        mkdir -p build/deb/opt/${{ env.NAME }}/proc
+        mkdir -p build/deb/opt/${{ env.NAME }}/{etc,home,sys,run,proc}
         
         cp target/release/${{ env.NAME }} build/deb/opt/${{ env.NAME }}/usr/bin/
         cp packaging/contextd.service build/deb/opt/${{ env.NAME }}/usr/lib/systemd/system/
         
-        echo 'ID=contextd' > build/deb/opt/${{ env.NAME }}/etc/os-release
-        echo 'NAME="Context Daemon Portable Root"' >> build/deb/opt/${{ env.NAME }}/etc/os-release
+        echo "ID=contextd" > build/deb/opt/${{ env.NAME }}/etc/os-release
+        echo "NAME=\"Context Daemon Portable Root\"" >> build/deb/opt/${{ env.NAME }}/etc/os-release
         
-        dpkg-deb --build build/deb ${{ env.NAME }}-0.1.0-1_amd64.deb
+        dpkg-deb --build build/deb dist/${{ env.NAME }}-${{ env.VERSION }}-amd64.deb
 
     - name: Build RPM Package
       run: |
-        sudo apt-get install -y rpm
+        # Update version in spec file
+        RAW_VER=${VERSION#v}
+        sed -i "s/^Version:.*/Version: ${RAW_VER}/" packaging/rpm/contextd.spec
+        
         mkdir -p rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+        tar -czvf rpmbuild/SOURCES/${{ env.NAME }}-${RAW_VER}.tar.gz --transform "s|^\.|${{ env.NAME }}-${RAW_VER}|" .
         
-        # Create source tarball for rpmbuild with correct top-level directory
-        tar -czvf rpmbuild/SOURCES/${{ env.NAME }}-0.1.0.tar.gz --transform "s|^\.|${{ env.NAME }}-0.1.0|" .
-        
-        # Build
         rpmbuild -ba packaging/rpm/contextd.spec --define "_topdir $(pwd)/rpmbuild" --nodeps
-        cp rpmbuild/RPMS/x86_64/*.rpm .
+        cp rpmbuild/RPMS/x86_64/*.rpm dist/${{ env.NAME }}-${{ env.VERSION }}-x86_64.rpm
 
-    - name: Assemble All Artifacts
-      run: |
-        mkdir -p dist
-        # Portable Tarball
-        cd build/portable
-        tar -czvf ../../dist/${{ env.NAME }}-portable-x86_64.tar.gz ${{ env.NAME }}
-        cd ../..
-        
-        # DEB and RPM
-        mv contextd-*.deb dist/ || true
-        mv *.rpm dist/ || true
-        
-        echo "Final dist contents:"
-        ls -R dist/
-
-    - name: Upload Artifacts
-      uses: actions/upload-artifact@v7
+    - name: Upload Workspace Artifacts
+      uses: actions/upload-artifact@v4
       with:
-        name: ${{ env.NAME }}-packages
-        path: dist/
+        name: contextd-builds
+        path: dist/*
 
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/v')
-      uses: softprops/action-gh-release@v3
+      uses: softprops/action-gh-release@v2
       with:
-        files: dist/*
+        files: |
+          dist/${{ env.NAME }}-${{ env.VERSION }}-x86_64-portable.tar.gz
+          dist/${{ env.NAME }}-${{ env.VERSION }}-amd64.deb
+          dist/${{ env.NAME }}-${{ env.VERSION }}-x86_64.rpm
+        generate_release_notes: true
         draft: false
         prerelease: false
+
