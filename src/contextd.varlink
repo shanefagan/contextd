@@ -41,8 +41,6 @@ type Diagnostics (
   gpus: []Gpu,
   kernel_version: string,
   os_release: string,
-  is_flatpak: bool,
-  is_snap: bool,
   last_updated: int # Unix timestamp
 )
 

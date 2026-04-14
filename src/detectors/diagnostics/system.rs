@@ -38,9 +38,6 @@ impl SystemDiagnostics {
 
         let gpus = Self::detect_gpus();
 
-        let is_flatpak = Path::new("/.flatpak-info").exists();
-        let is_snap = std::env::var("SNAP").is_ok();
-
         Diagnostics {
             vulkan_supported,
             opengl_supported,
@@ -51,8 +48,6 @@ impl SystemDiagnostics {
             gpus,
             kernel_version,
             os_release,
-            is_flatpak,
-            is_snap,
             last_updated: 0,
         }
     }
@@ -60,24 +55,32 @@ impl SystemDiagnostics {
     fn detect_gpus() -> Vec<Gpu> {
         let mut gpus = Vec::new();
 
-        // Basic GPU detection via DRM sysfs
-        let drm_path = "/sys/class/drm";
-        if let Ok(entries) = fs::read_dir(drm_path) {
-            for entry in entries.flatten() {
-                let name = entry.file_name().to_string_lossy().to_string();
-                if name.starts_with("card") && !name.contains('-') {
-                    // This is a base card node
-                    let device_path = entry.path().join("device");
+        if let Ok(mut enumerator) = udev::Enumerator::new() {
+            enumerator.match_subsystem("drm").unwrap();
 
-                    let vendor = fs::read_to_string(device_path.join("vendor"))
-                        .map(|s| s.trim().to_string())
-                        .unwrap_or_else(|_| "Unknown".to_string());
+            for device in enumerator.scan_devices().unwrap() {
+                let sysname = device.sysname().to_string_lossy();
+                if sysname.starts_with("card") && !sysname.contains('-') {
+                    // Get vendor and model names from udev database
+                    let vendor = device
+                        .property_value("ID_VENDOR_FROM_DATABASE")
+                        .or_else(|| device.property_value("ID_VENDOR"))
+                        .map(|s| s.to_string_lossy().to_string())
+                        .unwrap_or_else(|| "Unknown".to_string());
 
-                    let device_id = fs::read_to_string(device_path.join("device"))
-                        .map(|s| s.trim().to_string())
-                        .unwrap_or_else(|_| "Unknown".to_string());
+                    let model = device
+                        .property_value("ID_MODEL_FROM_DATABASE")
+                        .or_else(|| device.property_value("ID_MODEL"))
+                        .map(|s| s.to_string_lossy().to_string())
+                        .unwrap_or_else(|| format!("GPU ({})", sysname));
 
-                    // Try to get VRAM (AMD style)
+                    let driver = device
+                        .driver()
+                        .map(|s| s.to_string_lossy().to_string())
+                        .unwrap_or_else(|| "unknown".to_string());
+
+                    // Try to get VRAM from sysfs (still somewhat vendor-specific paths)
+                    let device_path = device.syspath().join("device");
                     let vram_total = fs::read_to_string(device_path.join("mem_info_vram_total"))
                         .ok()
                         .and_then(|s| s.trim().parse::<i64>().ok())
@@ -89,23 +92,9 @@ impl SystemDiagnostics {
                         .and_then(|s| s.trim().parse::<i64>().ok())
                         .map(|b| b / 1024 / 1024);
 
-                    // Map vendor IDs to names
-                    let vendor_name = match vendor.as_str() {
-                        "0x1002" => "AMD",
-                        "0x10de" => "NVIDIA",
-                        "0x8086" => "Intel",
-                        _ => &vendor,
-                    }
-                    .to_string();
-
-                    let driver = fs::read_link(device_path.join("driver"))
-                        .ok()
-                        .and_then(|p| p.file_name().map(|n| n.to_string_lossy().to_string()))
-                        .unwrap_or_else(|| "unknown".to_string());
-
                     gpus.push(Gpu {
-                        name: format!("GPU ({})", device_id),
-                        vendor: vendor_name,
+                        name: model,
+                        vendor,
                         driver,
                         vram_total,
                         vram_used,
@@ -120,7 +109,7 @@ impl SystemDiagnostics {
                 name: "NVIDIA GPU".to_string(),
                 vendor: "NVIDIA".to_string(),
                 driver: "nvidia".to_string(),
-                vram_total: 0, // Harder to get without nvml
+                vram_total: 0,
                 vram_used: None,
             });
         }

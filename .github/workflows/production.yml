@@ -130,7 +130,13 @@ jobs:
         sed -i "s/^Version:.*/Version: ${RAW_VER}/" packaging/rpm/contextd.spec
         
         mkdir -p rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-        tar -czvf rpmbuild/SOURCES/${{ env.NAME }}-${RAW_VER}.tar.gz --transform "s|^\.|${{ env.NAME }}-${RAW_VER}|" .
+        tar -czvf rpmbuild/SOURCES/${{ env.NAME }}-${RAW_VER}.tar.gz \
+          --exclude="./target" \
+          --exclude="./rpmbuild" \
+          --exclude="./dist" \
+          --exclude="./.git" \
+          --exclude="./.github" \
+          --transform "s|^\.|${{ env.NAME }}-${RAW_VER}|" .
         
         rpmbuild -ba packaging/rpm/contextd.spec --define "_topdir $(pwd)/rpmbuild" --nodeps
         cp rpmbuild/RPMS/x86_64/*.rpm dist/${{ env.NAME }}-${{ env.VERSION }}-x86_64.rpm
