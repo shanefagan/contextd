@@ -16,6 +16,7 @@ use crate::detectors::games::manager::GameManager;
 use crate::detectors::games::steam::SteamDetector;
 use crate::detectors::hardware::manager::HardwareManager;
 use crate::detectors::hardware::udev::UdevDetector;
+use crate::detectors::diagnostics::manager::DiagnosticsManager;
 use crate::service::ContextService;
 
 fn main() -> anyhow::Result<()> {
@@ -41,11 +42,13 @@ fn main() -> anyhow::Result<()> {
     }
 
     let hardware_manager = Arc::new(RwLock::new(hardware_manager));
+    let diagnostics_manager = Arc::new(RwLock::new(DiagnosticsManager::new()));
 
     // Initialize Varlink Service
     let service = ContextService {
         game_manager: Arc::clone(&game_manager),
         hardware_manager: Arc::clone(&hardware_manager),
+        diagnostics_manager: Arc::clone(&diagnostics_manager),
     };
 
     let varlink_service = VarlinkService::new(

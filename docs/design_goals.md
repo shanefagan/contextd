@@ -14,6 +14,11 @@ Context Daemon is a lightweight Linux utility designed to bridge the gap between
 - Separate RGB lighting controllers and fans into a dedicated "Aesthetic" inventory to avoid cluttering gaming gear lists.
 - **Poll-on-Demand**: Uses a cached results model (TTL-based) rather than real-time hotplug monitoring. This keeps the daemon lightweight and removes the need for high-privilege `CAP_NET_ADMIN` permissions.
 
+### 3. System Sanity & Diagnostics
+- Provide a "Bug Report Readiness" check for Linux gaming.
+- Expose hardware specs (RAM, CPU) and platform-level support (Vulkan, OpenGL).
+- Surface environment context (Snap/Flatpak) to help developers and maintainers troubleshoot performance or library issues.
+
 ### 3. Security & IPC Model
 - **Principle of Least Privilege**: Although the daemon is initialized by systemd, it drops almost all root privileges via the Portable Service sandbox. It retains only `CAP_SYS_PTRACE` (for process scanning) and `CAP_DAC_READ_SEARCH` (for reading game manifests in `/home`).
 - **Strict Sandboxing**: Utilizes `ProtectSystem=strict`, `MemoryDenyWriteExecute=yes`, and other systemd hardenings to ensure the daemon cannot be easily compromised.

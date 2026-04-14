@@ -1,11 +1,13 @@
 use crate::contextd::*;
 use crate::detectors::games::manager::GameManager;
 use crate::detectors::hardware::manager::HardwareManager;
+use crate::detectors::diagnostics::manager::DiagnosticsManager;
 use std::sync::{Arc, RwLock};
 
 pub struct ContextService {
     pub game_manager: Arc<RwLock<GameManager>>,
     pub hardware_manager: Arc<RwLock<HardwareManager>>,
+    pub diagnostics_manager: Arc<RwLock<DiagnosticsManager>>,
 }
 
 impl VarlinkInterface for ContextService {
@@ -27,5 +29,10 @@ impl VarlinkInterface for ContextService {
     fn list_rgbdevices(&self, call: &mut dyn Call_ListRGBDevices) -> varlink::Result<()> {
         let mut manager = self.hardware_manager.write().unwrap();
         call.reply(manager.list_rgb_devices())
+    }
+
+    fn get_diagnostics(&self, call: &mut dyn Call_GetDiagnostics) -> varlink::Result<()> {
+        let mut manager = self.diagnostics_manager.write().unwrap();
+        call.reply(manager.get_diagnostics())
     }
 }

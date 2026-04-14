@@ -21,6 +21,31 @@ type Game (
   pid: ?int
 )
 
+# GPU Information
+type Gpu (
+  name: string,
+  vendor: string,
+  driver: string,
+  vram_total: int,
+  vram_used: ?int
+)
+
+# System Diagnostics
+type Diagnostics (
+  vulkan_supported: bool,
+  opengl_supported: bool,
+  ram_total: int,
+  ram_used: int,
+  cpu_model: string,
+  cpu_count: int,
+  gpus: []Gpu,
+  kernel_version: string,
+  os_release: string,
+  is_flatpak: bool,
+  is_snap: bool,
+  last_updated: int # Unix timestamp
+)
+
 # Returns the currently active game, if any.
 method GetActiveGame() -> (game: ?Game)
 
@@ -32,4 +57,7 @@ method ListDevices() -> (devices: []Device)
 
 # Lists all RGB controllers, lighting strips, and fans.
 method ListRGBDevices() -> (devices: []Device)
+
+# Returns diagnostic information for the system.
+method GetDiagnostics() -> (diagnostics: Diagnostics)
 

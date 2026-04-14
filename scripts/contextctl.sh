@@ -28,6 +28,9 @@ case $CMD in
     list-rgb)
         varlinkctl call $ADDR com.performativenonsense.contextd.ListRGBDevices "{}"
         ;;
+    diagnostics)
+        varlinkctl call $ADDR com.performativenonsense.contextd.GetDiagnostics "{}"
+        ;;
     *)
         usage
         ;;

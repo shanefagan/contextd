@@ -6,8 +6,6 @@
 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE.md)
-[![CI](https://github.com/shanefagan/contextd/actions/workflows/pipeline.yml/badge.svg)](https://github.com/shanefagan/contextd/actions/workflows/pipeline.yml)
-
 
 
 
@@ -31,6 +29,11 @@ A generic, lightweight Linux daemon that exposes process context (e.g., gaming a
   - **Main Inventory**: Clean list of only active gaming gear (Mice, Keyboards, Controllers, Audio).
   - **RGB Inventory**: Dedicated endpoint for system aesthetics (LEDs, Fans, Lighting Strips).
   - Reports `uaccess` status for "readiness" checks (permission verification).
+- **System Diagnostics**:
+  - Provides hardware sanity checks for support reporting.
+  - Reports RAM/CPU specs, GPU details (including VRAM), and kernel/OS info.
+  - Verifies presence of Vulkan and OpenGL libraries.
+  - Identifies if running under Flatpak or Snap environments.
 - **Modern IPC**: Uses [Varlink](https://varlink.org/) for typed, discoverable, and language-agnostic communication.
 - **systemd Native**: Distributed as a **systemd portable service**, ensuring zero-dependency deployment on any modern Linux distro.
 
@@ -68,6 +71,9 @@ Use the `contextctl` helper to query the daemon:
 
 # List RGB controllers, fans, and lights
 ./scripts/contextctl.sh list-rgb
+
+# Get system diagnostics (RAM, GPU, Vulkan, etc.)
+./scripts/contextctl.sh diagnostics
 ```
 
 ## CLI Debugging
@@ -83,6 +89,9 @@ You can query the daemon state using the provided wrapper script:
 
 # List RGB controllers/fans
 ./scripts/contextctl.sh list-rgb
+
+# Show system diagnostics
+./scripts/contextctl.sh diagnostics
 ```
 
 ## Managing the Service

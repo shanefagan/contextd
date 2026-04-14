@@ -52,3 +52,4 @@ We should leverage systemd security features to limit the daemon's powers:
 1.  **DONE**: Implemented TTL caching for games (5s) and hardware (10s).
 2.  **DONE**: Hardened `systemd` portable configuration with capability bounding (`CAP_SYS_PTRACE`, `CAP_DAC_READ_SEARCH`).
 3.  **DONE**: Dropped real-time `udev` monitoring in favor of zero-overhead polling to keep the daemon lightweight and robust.
+4.  **DONE**: Implemented long-term caching for System Diagnostics (5-minute refresh) to avoid redundant hardware probing.

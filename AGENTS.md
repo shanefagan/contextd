@@ -16,6 +16,7 @@ Key methods to call:
 - `com.performativenonsense.contextd.Active()`: Returns the currently foregrounded game or high-performance app.
 - `com.performativenonsense.contextd.ListDevices()`: Returns a list of connected interaction hardware (Mice, Keyboards, Controllers).
 - `com.performativenonsense.contextd.ListRgb()`: Returns a list of addressable lighting/aesthetic hardware.
+- `com.performativenonsense.contextd.GetDiagnostics()`: Returns system sanity information (RAM, GPU, Vulkan/OpenGL support, and environment info).
 
 ### 3. Integration Philosophy
 - **Polling is Expected**: The daemon uses a internal 10-second cache. You can poll frequently without impacting system performance.
@@ -28,4 +29,5 @@ Key methods to call:
 AI Agents can leverage `contextd` to:
 - **Dynamic Profile Switching**: An agent can monitor `Active()` and automatically adjust system profiles, fan speeds, or lighting based on the detected app.
 - **Hardware Debugging**: If a user asks "Why isn't my mouse working?", an agent can check `ListDevices()` to see if the hardware is detected and if permissions (`uaccess`) are correct.
+- **System Sanity Checks**: Use `GetDiagnostics()` to verify if a user's system meets specific game requirements (VRAM, RAM) or to identify if they are missing critical graphics drivers/libraries (Vulkan/OpenGL).
 - **Game Stats Integration**: Use the detected AppID to fetch external game metadata or launch specific companion overlays.
