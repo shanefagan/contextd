@@ -118,7 +118,7 @@ fn main() -> anyhow::Result<()> {
             }
         });
 
-        // 2. Start Control Server (Restricted - 0660)
+        // 2. Start Control Server (Public - 0666)
         let control_interface = vec![Box::new(rgb::control::new(Box::new(rgb_service)))
             as Box<dyn varlink::Interface + Send + Sync>];
         let control_service = VarlinkService::new(
@@ -128,11 +128,10 @@ fn main() -> anyhow::Result<()> {
             "https://github.com/shanefagan/contextd",
             control_interface,
         );
-        // Using 0660 and group ownership for restricted access
         spawn_permission_fixer(
             ctrl_addr.trim_start_matches("unix:").to_string(),
-            0o660,
-            true,
+            0o666,
+            false,
         );
 
         log::info!("Observer listening on {}", obs_addr);
