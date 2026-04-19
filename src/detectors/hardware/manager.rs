@@ -110,6 +110,11 @@ impl HardwareManager {
             || name.contains("litra")
     }
 }
+impl Default for HardwareManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -165,10 +170,5 @@ mod tests {
 
         let mouse = mock_device("Plain Mouse", "0000", vec!["mouse"], true);
         assert!(!mgr.is_rgb_device(&mouse));
-    }
-}
-impl Default for HardwareManager {
-    fn default() -> Self {
-        Self::new()
     }
 }

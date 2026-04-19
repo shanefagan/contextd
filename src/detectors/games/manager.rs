@@ -53,6 +53,11 @@ impl GameManager {
         game
     }
 }
+impl Default for GameManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -100,10 +105,5 @@ mod tests {
         // but we can verify that the second call is immediate.
         let games2 = mgr.list_all_installed();
         assert_eq!(games2.len(), 1);
-    }
-}
-impl Default for GameManager {
-    fn default() -> Self {
-        Self::new()
     }
 }

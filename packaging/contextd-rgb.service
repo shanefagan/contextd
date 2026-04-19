@@ -12,6 +12,9 @@ RuntimeDirectory=contextd
 BindPaths=/run/contextd
 BindReadOnlyPaths=/usr/lib /usr/lib64 /lib /lib64 /etc/ld.so.cache -/etc/contextd /home /run/udev /sys
 ProtectHome=read-only
+# Capabilities for group-based socket ownership
+CapabilityBoundingSet=CAP_CHOWN
+AmbientCapabilities=CAP_CHOWN
 NoNewPrivileges=yes
 
 # Sandboxing & Security

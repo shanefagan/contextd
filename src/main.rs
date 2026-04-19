@@ -11,15 +11,7 @@ mod detectors;
 
 mod service;
 
-#[allow(clippy::all, nonstandard_style, unused_imports, dead_code)]
-#[path = "rgb_observer.rs"]
-mod rgb_observer;
-
-#[allow(clippy::all, nonstandard_style, unused_imports, dead_code)]
-#[path = "rgb_control.rs"]
-mod rgb_control;
-
-mod rgb_service;
+mod rgb;
 
 use std::sync::{Arc, RwLock};
 use varlink::VarlinkService;
@@ -42,21 +34,16 @@ fn spawn_permission_fixer(path: String, mode: u32, use_rgb_group: bool) {
                 log::debug!("Fixing permissions for {}: mode {:o}", path, mode);
 
                 if use_rgb_group {
-                    let group_data = std::fs::read_to_string("/etc/group").ok();
-                    if let Some(group) = group_data {
-                        for line in group.lines() {
-                            if line.starts_with("contextd-rgb:") {
-                                if let Some(gid) =
-                                    line.split(':').nth(2).and_then(|s| s.parse::<u32>().ok())
-                                {
-                                    let path_cstr = std::ffi::CString::new(path.clone()).unwrap();
-                                    unsafe {
-                                        libc::chown(path_cstr.as_ptr(), u32::MAX, gid);
-                                    }
-                                }
-                                break;
-                            }
+                    let group_name = std::ffi::CString::new("contextd-rgb").unwrap();
+                    let group_info = unsafe { libc::getgrnam(group_name.as_ptr()) };
+                    if !group_info.is_null() {
+                        let gid = unsafe { (*group_info).gr_gid };
+                        let path_cstr = std::ffi::CString::new(path.clone()).unwrap();
+                        unsafe {
+                            libc::chown(path_cstr.as_ptr(), u32::MAX, gid);
                         }
+                    } else {
+                        log::warn!("Group 'contextd-rgb' not found");
                     }
                 }
 
@@ -92,7 +79,7 @@ fn main() -> anyhow::Result<()> {
 
     if is_rgb_mode {
         log::info!("Starting Context Daemon in RGBA Mode (Dual-Socket)...");
-        let rgb_service = rgb_service::RgbService::new();
+        let rgb_service = rgb::service::RgbService::new();
 
         let obs_addr = "unix:/run/contextd/contextd-rgb-observer.socket";
         let ctrl_addr = "unix:/run/contextd/contextd-rgb-control.socket";
@@ -102,7 +89,7 @@ fn main() -> anyhow::Result<()> {
         let _ = std::fs::remove_file(ctrl_addr.trim_start_matches("unix:"));
 
         // 1. Start Observer Server (Public - 0666)
-        let observer_interface = vec![Box::new(rgb_observer::new(Box::new(rgb_service.clone())))
+        let observer_interface = vec![Box::new(rgb::observer::new(Box::new(rgb_service.clone())))
             as Box<dyn varlink::Interface + Send + Sync>];
         let observer_service = VarlinkService::new(
             "com.performativenonsense",
@@ -131,8 +118,8 @@ fn main() -> anyhow::Result<()> {
             }
         });
 
-        // 2. Start Control Server (Private - Temporarily 0666)
-        let control_interface = vec![Box::new(rgb_control::new(Box::new(rgb_service)))
+        // 2. Start Control Server (Restricted - 0660)
+        let control_interface = vec![Box::new(rgb::control::new(Box::new(rgb_service)))
             as Box<dyn varlink::Interface + Send + Sync>];
         let control_service = VarlinkService::new(
             "com.performativenonsense",
@@ -141,10 +128,10 @@ fn main() -> anyhow::Result<()> {
             "https://github.com/shanefagan/contextd",
             control_interface,
         );
-        // Temporarily using 0666 until fine-grained authorization is implemented
+        // Using 0660 and group ownership for restricted access
         spawn_permission_fixer(
             ctrl_addr.trim_start_matches("unix:").to_string(),
-            0o666,
+            0o660,
             true,
         );
 

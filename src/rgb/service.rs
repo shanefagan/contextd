@@ -7,8 +7,8 @@
 //! 1. Observer: A read-only/subscriber interface for hardware drivers.
 //! 2. Control: A write-only interface for authorized lighting controllers.
 
-use crate::rgb_control as control;
-use crate::rgb_observer as observer;
+use crate::rgb::control;
+use crate::rgb::observer;
 use std::sync::{Arc, RwLock, mpsc};
 
 /// The maximum allowed dimension for the lighting matrix (N x N)
@@ -63,20 +63,24 @@ impl RgbService {
         &self,
         call: &mut dyn control::Call_SetLightingContext,
         c: &control::Color,
-    ) -> varlink::Result<()> {
+    ) -> varlink::Result<bool> {
         if c.r < 0 || c.r > 255 {
-            return call.reply_invalid_color_value("r".to_string(), c.r);
+            call.reply_invalid_color_value("r".to_string(), c.r)?;
+            return Ok(false);
         }
         if c.g < 0 || c.g > 255 {
-            return call.reply_invalid_color_value("g".to_string(), c.g);
+            call.reply_invalid_color_value("g".to_string(), c.g)?;
+            return Ok(false);
         }
         if c.b < 0 || c.b > 255 {
-            return call.reply_invalid_color_value("b".to_string(), c.b);
+            call.reply_invalid_color_value("b".to_string(), c.b)?;
+            return Ok(false);
         }
         if c.a < 0 || c.a > 255 {
-            return call.reply_invalid_color_value("a".to_string(), c.a);
+            call.reply_invalid_color_value("a".to_string(), c.a)?;
+            return Ok(false);
         }
-        Ok(())
+        Ok(true)
     }
 }
 
@@ -127,8 +131,10 @@ impl control::VarlinkInterface for RgbService {
         matrix: Option<control::Matrix>,
     ) -> varlink::Result<()> {
         // 1. Validation Logic
-        if let Some(c) = &main_color {
-            self.validate_color(call, c)?;
+        if let Some(c) = &main_color
+            && !self.validate_color(call, c)?
+        {
+            return Ok(());
         }
 
         if let Some(m) = &matrix {
@@ -140,7 +146,9 @@ impl control::VarlinkInterface for RgbService {
             }
             // Validate every pixel in the matrix
             for pixel in &m.data {
-                self.validate_color(call, pixel)?;
+                if !self.validate_color(call, pixel)? {
+                    return Ok(());
+                }
             }
         }
 
