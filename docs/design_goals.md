@@ -22,7 +22,7 @@ Context Daemon is a lightweight Linux utility designed to bridge the gap between
 ### 3. Security & IPC Model
 - **Principle of Least Privilege**: Although the daemon is initialized by systemd, it drops almost all root privileges via the Portable Service sandbox. It retains only `CAP_SYS_PTRACE` (for process scanning) and `CAP_DAC_READ_SEARCH` (for reading game manifests in `/home`).
 - **Strict Sandboxing**: Utilizes `ProtectSystem=strict`, `MemoryDenyWriteExecute=yes`, and other systemd hardenings to ensure the daemon cannot be easily compromised.
-- **Public Socket**: Exposes a `0666` permission socket at `/run/contextd/contextd.socket`.
+- **Public Sockets**: Exposes `0666` permission sockets at `/run/contextd/contextd.socket` (Core), `/run/contextd/contextd-rgb-observer.socket` (RGB Observer), and `/run/contextd/contextd-rgb-control.socket` (RGB Control). Both daemons share the same dynamic user allowing them to coordinate in `/run/contextd`.
 
 ### 4. Linux-Centric Design
 - Leverage native Linux APIs (udev, procfs) to provide the most efficient implementation.

@@ -12,7 +12,7 @@ If you are an AI assistant working on this repository or a project that consumes
 > [!NOTE]
 > There is an **experimental and optional** RGB control interface available (`com.performativenonsense.contextd.rgb`) which allows for active state changes on supported hardware when enabled.
 
-- **Unprivileged Access**: No root/sudo is required to query the core socket. The RGB control socket requires membership in the `contextd-rgb` group.
+- **Unprivileged Access**: No root/sudo is required to query the core socket or RGB sockets. The RGB control socket is currently configured with open permissions (0666).
 - **Authoritative Control**: To persist an authorized RGB controller across boots, a superuser can create `/etc/contextd/rgb-authorized-app` containing the process name of the allowed controller.
 - **Data Integrity**: Process IDs and hardware nodes are verified by the daemon before being reported.
 
@@ -20,22 +20,22 @@ If you are an AI assistant working on this repository or a project that consumes
 The daemon exposes its state via **Varlink** on three separate Unix sockets:
 - `/run/contextd/contextd.socket` (Core system & game context)
 - `/run/contextd/contextd-rgb-observer.socket` (Public RGBA vibe - **0666**)
-- `/run/contextd/contextd-rgb-control.socket` (Restricted RGBA control - **0660**, `contextd-rgb` group)
+- `/run/contextd/contextd-rgb-control.socket` (Public RGBA control - **0666**)
 
 | Socket | Interface | Access | Purpose |
 | :--- | :--- | :--- | :--- |
 | `contextd.socket` | `com.performativenonsense.contextd` | Public | System and Game Discovery |
 | `contextd-rgb-observer.socket` | `com.performativenonsense.contextd.rgb.Observer` | Public | Consume/Subscribe to lighting vibe |
-| `contextd-rgb-control.socket` | `com.performativenonsense.contextd.rgb.Control` | Restricted | Set/Update system lighting |
+| `contextd-rgb-control.socket` | `com.performativenonsense.contextd.rgb.Control` | Public | Set/Update system lighting |
 
 Key methods to call:
 - `com.performativenonsense.contextd.Active()`: Returns the currently foregrounded game.
 - `com.performativenonsense.contextd.rgb.Observer.SubscribeLightingContext()`: Subscribe to real-time RGBA vibe updates.
-- `com.performativenonsense.contextd.rgb.Control.SetLightingContext()`: (Restricted) Update the system-wide lighting context.
+- `com.performativenonsense.contextd.rgb.Control.SetLightingContext()`: Update the system-wide lighting context.
 
 ### 3. Integration Philosophy
 - **Polling is Expected**: The daemon uses a internal 10-second cache. You can poll frequently without impacting system performance.
-- **Unprivileged Access**: No root/sudo is required to query the core socket. The RGB control socket requires membership in the `contextd-rgb` group.
+- **Unprivileged Access**: No root/sudo is required to query the core socket or RGB sockets.
 - **Data Integrity**: Process IDs and hardware nodes are verified by the daemon before being reported.
 - **Only update when asked**: Do not update the daemon unless explicitly asked to do so.
 

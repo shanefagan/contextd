@@ -12,7 +12,7 @@ Every push to `master` and every `tag` triggers the following pipeline:
 3. **Assemble Portable Tree**:
    - Create a directory structure matching the portable service spec.
    - Copy the binary to `usr/bin/`.
-   - Copy the unit file to `usr/lib/systemd/system/`.
+   - Copy the unit files (Core and RGB) to `usr/lib/systemd/system/`.
    - Ensure `usr/lib/os-release` is present.
 4. **Archive**: Create `contextd-vX.Y.Z-x86_64.tar.gz`.
 5. **Release**: Upload to GitHub Releases for tagged commits.

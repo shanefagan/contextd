@@ -31,9 +31,8 @@ A generic, lightweight Linux daemon that exposes process context (e.g., gaming a
   - Reports `uaccess` status for "readiness" checks (permission verification).
 - **System Diagnostics**:
   - Provides hardware sanity checks for support reporting.
-  - Reports RAM/CPU specs, GPU details (including VRAM), and kernel/OS info.
+  - Reports RAM/CPU specs, GPU details, and kernel/OS info.
   - Verifies presence of Vulkan and OpenGL libraries.
-  - Identifies if running under Flatpak or Snap environments.
 - **Modern IPC**: Uses [Varlink](https://varlink.org/) for typed, discoverable, and language-agnostic communication.
 - **systemd Native**: Distributed as a **systemd portable service**, ensuring zero-dependency deployment on any modern Linux distro.
 

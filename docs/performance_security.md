@@ -21,11 +21,11 @@ Currently, `contextd` performs fresh system scans every time a Varlink method is
 
 ## 2. Security
 
-### Current State: Full Root
-The daemon runs as `User=root` within the portable service. This is necessary for:
+### Current State: Dynamic User with Capabilities
+The daemon runs as a `DynamicUser` (defaulting to the `contextd` username) within the portable service. It uses systemd capabilities to elevate privileges only where strictly necessary:
 - Reading `/proc/*/environ` (requires `CAP_SYS_PTRACE`).
-- Accessing other users' `/home` game manifests.
-- Managing the `/run/contextd` directory and socket permissions.
+- Accessing other users' `/home` game manifests (requires `CAP_DAC_READ_SEARCH`).
+- Sharing the `/run/contextd` directory between the Core and RGB services.
 
 ### Potential Risks
 - **Information Leak**: Any local user can see what games/apps another user is running via the `0666` socket.
@@ -43,13 +43,14 @@ We should leverage systemd security features to limit the daemon's powers:
    - `PrivateDevices=no` (We need device nodes for udev/peripherals)
    - `NoNewPrivileges=yes`
 3. **Socket Permissions**:
-   - Change group of `/run/contextd` to `gaming` or similar, or use an ACL.
+   - For ease of integration and zero-configuration use, the daemon exposes `0666` public sockets. Both the Core service and RGB service share the same `DynamicUser` to cleanly manage files in `/run/contextd`.
 
 ---
 
 ## 3. Implementation Status (Current)
 
 1.  **DONE**: Implemented TTL caching for games (5s) and hardware (10s).
-2.  **DONE**: Hardened `systemd` portable configuration with capability bounding (`CAP_SYS_PTRACE`, `CAP_DAC_READ_SEARCH`).
+2.  **DONE**: Hardened `systemd` portable configuration with capability bounding (`CAP_SYS_PTRACE`, `CAP_DAC_READ_SEARCH`) and `DynamicUser`.
 3.  **DONE**: Dropped real-time `udev` monitoring in favor of zero-overhead polling to keep the daemon lightweight and robust.
 4.  **DONE**: Implemented long-term caching for System Diagnostics (5-minute refresh) to avoid redundant hardware probing.
+5.  **DONE**: RGB daemon split into a separate service (`contextd-rgb.service`) that shares the same dynamic user to avoid permission conflicts.
