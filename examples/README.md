@@ -28,6 +28,10 @@ A minimal C example demonstrating how to use POSIX sockets to send a Varlink JSO
 - **`c/get_active_game.c`**: Pure C with no external dependencies (uses standard `sys/socket.h` and `sys/un.h`).
   *Compile and run:* `gcc c/get_active_game.c -o get_active_game && ./get_active_game`
 
+## Flatpak Integration
+If you are developing a sandboxed application (like a Flatpak), you need to grant it access to the daemon's sockets.
+- See [FLATPAK.md](FLATPAK.md) for manifest configuration and command-line overrides.
+
 ## Socket Paths
 Remember the daemon exposes three interfaces:
 1. **Core Socket**: `/run/contextd/public/contextd.socket`
