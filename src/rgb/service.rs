@@ -11,8 +11,8 @@ use crate::rgb::control;
 use crate::rgb::observer;
 use std::sync::{Arc, RwLock, mpsc};
 
-/// The maximum allowed dimension for the lighting matrix (N x N)
-const MAX_MATRIX_SIZE: i64 = 420;
+/// The maximum allowed total pixels for the lighting matrix (e.g. 128x128 = 16384)
+const MAX_MATRIX_PIXELS: i64 = 16384;
 
 /// Shared internal state holding the current lighting context and subscribers
 #[derive(Clone)]
@@ -145,14 +145,15 @@ impl control::VarlinkInterface for RgbService {
         }
 
         if let Some(m) = &matrix {
-            if m.size <= 0 {
-                return call.reply_invalid_matrix_size(m.size, m.data.len() as i64);
+            if m.width < 0 || m.height < 0 {
+                return call.reply_invalid_matrix_size(m.width, m.height, m.data.len() as i64);
             }
-            if m.size > MAX_MATRIX_SIZE {
-                return call.reply_matrix_too_large(MAX_MATRIX_SIZE);
+            let total_pixels = m.width * m.height;
+            if total_pixels > MAX_MATRIX_PIXELS {
+                return call.reply_matrix_too_large(MAX_MATRIX_PIXELS);
             }
-            if m.data.len() != (m.size * m.size) as usize {
-                return call.reply_invalid_matrix_size(m.size, m.data.len() as i64);
+            if m.data.len() as i64 != total_pixels {
+                return call.reply_invalid_matrix_size(m.width, m.height, m.data.len() as i64);
             }
             // Validate every pixel in the matrix
             for pixel in &m.data {
@@ -177,7 +178,8 @@ impl control::VarlinkInterface for RgbService {
 
         if let Some(m) = matrix {
             state.matrix = Some(observer::Matrix {
-                size: m.size,
+                width: m.width,
+                height: m.height,
                 data: m
                     .data
                     .into_iter()

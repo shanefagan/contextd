@@ -184,20 +184,29 @@ pub trait VarlinkCallError: varlink::CallTrait {
             ),
         ))
     }
-    fn reply_invalid_matrix_size(&mut self, r#size: i64, r#data_len: i64) -> varlink::Result<()> {
+    fn reply_invalid_matrix_size(
+        &mut self,
+        r#width: i64,
+        r#height: i64,
+        r#data_len: i64,
+    ) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "com.performativenonsense.contextd.rgb.Control.InvalidMatrixSize",
             Some(
-                serde_json::to_value(InvalidMatrixSize_Args { r#size, r#data_len })
-                    .map_err(varlink::map_context!())?,
+                serde_json::to_value(InvalidMatrixSize_Args {
+                    r#width,
+                    r#height,
+                    r#data_len,
+                })
+                .map_err(varlink::map_context!())?,
             ),
         ))
     }
-    fn reply_matrix_too_large(&mut self, r#max_size: i64) -> varlink::Result<()> {
+    fn reply_matrix_too_large(&mut self, r#max_pixels: i64) -> varlink::Result<()> {
         self.reply_struct(varlink::Reply::error(
             "com.performativenonsense.contextd.rgb.Control.MatrixTooLarge",
             Some(
-                serde_json::to_value(MatrixTooLarge_Args { r#max_size })
+                serde_json::to_value(MatrixTooLarge_Args { r#max_pixels })
                     .map_err(varlink::map_context!())?,
             ),
         ))
@@ -213,7 +222,8 @@ pub struct r#Color {
 }
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct r#Matrix {
-    pub r#size: i64,
+    pub r#width: i64,
+    pub r#height: i64,
     pub r#data: Vec<Color>,
 }
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -223,12 +233,13 @@ pub struct InvalidColorValue_Args {
 }
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct InvalidMatrixSize_Args {
-    pub r#size: i64,
+    pub r#width: i64,
+    pub r#height: i64,
     pub r#data_len: i64,
 }
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct MatrixTooLarge_Args {
-    pub r#max_size: i64,
+    pub r#max_pixels: i64,
 }
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct SetLightingContext_Reply {}
@@ -307,7 +318,7 @@ pub fn new(inner: Box<dyn VarlinkInterface + Send + Sync>) -> VarlinkInterfacePr
 }
 impl varlink::Interface for VarlinkInterfaceProxy {
     fn get_description(&self) -> &'static str {
-        "interface com.performativenonsense.contextd.rgb.Control\n\n# RGBA Color representation\ntype Color (\n  r: int,\n  g: int,\n  b: int,\n  a: int\n)\n\n# A square matrix of colors (N x N)\ntype Matrix (\n  size: int,\n  data: []Color\n)\n\n# Sets the current lighting context.\nmethod SetLightingContext(\n  main_color: ?Color,\n  matrix: ?Matrix\n) -> ()\n\n# The Matrix size requested is too large (Maximum is 420x420)\nerror MatrixTooLarge(max_size: int)\n\n# The Matrix data length does not match size*size\nerror InvalidMatrixSize(size: int, data_len: int)\n\n# A color component value is outside the valid range (0-255)\nerror InvalidColorValue(component: string, value: int)\n"
+        "interface com.performativenonsense.contextd.rgb.Control\n\n# RGBA Color representation\ntype Color (\n  r: int,\n  g: int,\n  b: int,\n  a: int\n)\n\n# A rectangular matrix of colors (width x height)\ntype Matrix (\n  width: int,\n  height: int,\n  data: []Color\n)\n\n# Sets the current lighting context.\nmethod SetLightingContext(\n  main_color: ?Color,\n  matrix: ?Matrix\n) -> ()\n\n# The Matrix size requested is too large\nerror MatrixTooLarge(max_pixels: int)\n\n# The Matrix data length does not match width * height\nerror InvalidMatrixSize(width: int, height: int, data_len: int)\n\n# A color component value is outside the valid range (0-255)\nerror InvalidColorValue(component: string, value: int)\n"
     }
     fn get_name(&self) -> &'static str {
         "com.performativenonsense.contextd.rgb.Control"

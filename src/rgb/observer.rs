@@ -118,7 +118,8 @@ pub struct r#Color {
 }
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct r#Matrix {
-    pub r#size: i64,
+    pub r#width: i64,
+    pub r#height: i64,
     pub r#data: Vec<Color>,
 }
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -226,7 +227,7 @@ pub fn new(inner: Box<dyn VarlinkInterface + Send + Sync>) -> VarlinkInterfacePr
 }
 impl varlink::Interface for VarlinkInterfaceProxy {
     fn get_description(&self) -> &'static str {
-        "interface com.performativenonsense.contextd.rgb.Observer\n\n# RGBA Color representation\ntype Color (\n  r: int,\n  g: int,\n  b: int,\n  a: int\n)\n\n# A square matrix of colors (N x N)\ntype Matrix (\n  size: int,\n  data: []Color\n)\n\n# Returns the current ambient lighting context.\nmethod GetLightingContext() -> (\n  main_color: Color,\n  matrix: ?Matrix\n)\n\n# Subscribes to lighting context updates.\nmethod SubscribeLightingContext() -> (\n  main_color: Color,\n  matrix: ?Matrix\n)\n"
+        "interface com.performativenonsense.contextd.rgb.Observer\n\n# RGBA Color representation\ntype Color (\n  r: int,\n  g: int,\n  b: int,\n  a: int\n)\n\n# A rectangular matrix of colors (width x height)\ntype Matrix (\n  width: int,\n  height: int,\n  data: []Color\n)\n\n# Returns the current ambient lighting context.\nmethod GetLightingContext() -> (\n  main_color: Color,\n  matrix: ?Matrix\n)\n\n# Subscribes to lighting context updates.\nmethod SubscribeLightingContext() -> (\n  main_color: Color,\n  matrix: ?Matrix\n)\n"
     }
     fn get_name(&self) -> &'static str {
         "com.performativenonsense.contextd.rgb.Observer"

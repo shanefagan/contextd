@@ -8,9 +8,10 @@ type Color (
   a: int
 )
 
-# A square matrix of colors (N x N)
+# A rectangular matrix of colors (width x height)
 type Matrix (
-  size: int,
+  width: int,
+  height: int,
   data: []Color
 )
 
@@ -20,11 +21,11 @@ method SetLightingContext(
   matrix: ?Matrix
 ) -> ()
 
-# The Matrix size requested is too large (Maximum is 420x420)
-error MatrixTooLarge(max_size: int)
+# The Matrix size requested is too large
+error MatrixTooLarge(max_pixels: int)
 
-# The Matrix data length does not match size*size
-error InvalidMatrixSize(size: int, data_len: int)
+# The Matrix data length does not match width * height
+error InvalidMatrixSize(width: int, height: int, data_len: int)
 
 # A color component value is outside the valid range (0-255)
 error InvalidColorValue(component: string, value: int)

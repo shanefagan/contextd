@@ -8,9 +8,10 @@ type Color (
   a: int
 )
 
-# A square matrix of colors (N x N)
+# A rectangular matrix of colors (width x height)
 type Matrix (
-  size: int,
+  width: int,
+  height: int,
   data: []Color
 )
 
