@@ -81,8 +81,12 @@ fn main() -> anyhow::Result<()> {
         log::info!("Starting Context Daemon in RGBA Mode (Dual-Socket)...");
         let rgb_service = rgb::service::RgbService::new();
 
-        let obs_addr = "unix:/run/contextd/contextd-rgb-observer.socket";
-        let ctrl_addr = "unix:/run/contextd/contextd-rgb-control.socket";
+        // Ensure socket directories exist
+        let _ = std::fs::create_dir_all("/run/contextd/public");
+        let _ = std::fs::create_dir_all("/run/contextd/private");
+
+        let obs_addr = "unix:/run/contextd/public/contextd-rgb-observer.socket";
+        let ctrl_addr = "unix:/run/contextd/private/contextd-rgb-control.socket";
 
         // Cleanup stale sockets
         let _ = std::fs::remove_file(obs_addr.trim_start_matches("unix:"));
@@ -118,7 +122,7 @@ fn main() -> anyhow::Result<()> {
             }
         });
 
-        // 2. Start Control Server (Public - 0666)
+        // 2. Start Control Server (Private - 0666)
         let control_interface = vec![Box::new(rgb::control::new(Box::new(rgb_service)))
             as Box<dyn varlink::Interface + Send + Sync>];
         let control_service = VarlinkService::new(
@@ -146,7 +150,8 @@ fn main() -> anyhow::Result<()> {
         varlink::listen(control_service, ctrl_addr, &config)?;
     } else {
         log::info!("Starting Context Daemon in Core Mode...");
-        let address = "unix:/run/contextd/contextd.socket";
+        let _ = std::fs::create_dir_all("/run/contextd/public");
+        let address = "unix:/run/contextd/public/contextd.socket";
         let _ = std::fs::remove_file(address.trim_start_matches("unix:"));
 
         let service = ContextService {

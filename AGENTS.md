@@ -18,15 +18,15 @@ If you are an AI assistant working on this repository or a project that consumes
 
 ### 2. Available Interfaces
 The daemon exposes its state via **Varlink** on three separate Unix sockets:
-- `/run/contextd/contextd.socket` (Core system & game context)
-- `/run/contextd/contextd-rgb-observer.socket` (Public RGBA vibe - **0666**)
-- `/run/contextd/contextd-rgb-control.socket` (Public RGBA control - **0666**)
+- `/run/contextd/public/contextd.socket` (Core system & game context)
+- `/run/contextd/public/contextd-rgb-observer.socket` (Public RGBA vibe - **0666**)
+- `/run/contextd/private/contextd-rgb-control.socket` (Private RGBA control - **0666**)
 
 | Socket | Interface | Access | Purpose |
 | :--- | :--- | :--- | :--- |
 | `contextd.socket` | `com.performativenonsense.contextd` | Public | System and Game Discovery |
 | `contextd-rgb-observer.socket` | `com.performativenonsense.contextd.rgb.Observer` | Public | Consume/Subscribe to lighting vibe |
-| `contextd-rgb-control.socket` | `com.performativenonsense.contextd.rgb.Control` | Public | Set/Update system lighting |
+| `contextd-rgb-control.socket` | `com.performativenonsense.contextd.rgb.Control` | Private | Set/Update system lighting |
 
 Key methods to call:
 - `com.performativenonsense.contextd.Active()`: Returns the currently foregrounded game.

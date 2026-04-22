@@ -1,9 +1,9 @@
 #!/bin/bash
 # Simple CLI wrapper for contextd using varlinkctl
 
-ADDR="unix:/run/contextd/contextd.socket"
-RGB_OBS_ADDR="unix:/run/contextd/contextd-rgb-observer.socket"
-RGB_CTRL_ADDR="unix:/run/contextd/contextd-rgb-control.socket"
+ADDR="unix:/run/contextd/public/contextd.socket"
+RGB_OBS_ADDR="unix:/run/contextd/public/contextd-rgb-observer.socket"
+RGB_CTRL_ADDR="unix:/run/contextd/private/contextd-rgb-control.socket"
 
 usage() {
     echo "Usage: $0 [active|list-games|list-devices|list-rgb|diagnostics|rgb-get|rgb-set|rgb-set-matrix|rgb-subscribe]"

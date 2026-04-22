@@ -11,7 +11,7 @@ class VarlinkThread(QThread):
     def run(self):
         try:
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            sock.connect("/run/contextd/contextd-rgb-observer.socket")
+            sock.connect("/run/contextd/public/contextd-rgb-observer.socket")
             
             req = {
                 "method": "com.performativenonsense.contextd.rgb.Observer.SubscribeLightingContext",

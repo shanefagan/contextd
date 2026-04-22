@@ -37,7 +37,7 @@ def main():
     
     try:
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        sock.connect("/run/contextd/contextd-rgb-control.socket")
+        sock.connect("/run/contextd/private/contextd-rgb-control.socket")
     except Exception as e:
         print(f"Failed to connect to control socket: {e}")
         sys.exit(1)
