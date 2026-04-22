@@ -16,3 +16,8 @@
 - [x] **Logo & Identity**: Create a simple icon/logo for the project.
 - [x] **Interface Refactoring & Cleanup**: Moved generated code to `OUT_DIR` and implemented `DynamicInterface` for `get_description` parity.
 
+
+## Phase 7: Refinement & Security Hardening
+- [ ] **Systemd Peer Validation**: Use `SO_PEERCRED` to identify calling services and apply granular access control based on systemd units.
+- [ ] **Configuration Overrides**: Support `/etc/contextd/config.toml` for manual TTL tuning and process blacklisting.
+- [ ] **Arch Linux PKGBUILD**: Finalize the AUR package for the 1.0 release.
