@@ -16,6 +16,7 @@ mod rgb;
 use std::sync::{Arc, RwLock};
 use varlink::VarlinkService;
 
+use crate::detectors::controllers::manager::ControllerManager;
 use crate::detectors::diagnostics::manager::DiagnosticsManager;
 use crate::detectors::games::heroic::HeroicDetector;
 use crate::detectors::games::lutris::LutrisDetector;
@@ -76,6 +77,7 @@ fn main() -> anyhow::Result<()> {
     hardware_manager.add_detector(Box::new(UdevDetector::new()));
     let hardware_manager = Arc::new(RwLock::new(hardware_manager));
     let diagnostics_manager = Arc::new(RwLock::new(DiagnosticsManager::new()));
+    let controller_manager = Arc::new(RwLock::new(ControllerManager::new()));
 
     if is_rgb_mode {
         log::info!("Starting Context Daemon in RGBA Mode (Dual-Socket)...");
@@ -158,6 +160,7 @@ fn main() -> anyhow::Result<()> {
             game_manager: Arc::clone(&game_manager),
             hardware_manager: Arc::clone(&hardware_manager),
             diagnostics_manager: Arc::clone(&diagnostics_manager),
+            controller_manager: Arc::clone(&controller_manager),
         };
         let interfaces: Vec<Box<dyn varlink::Interface + Send + Sync>> =
             vec![Box::new(contextd::new(Box::new(service)))];

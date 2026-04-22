@@ -110,6 +110,16 @@ impl From<&varlink::Reply> for ErrorKind {
 pub trait VarlinkCallError: varlink::CallTrait {}
 impl VarlinkCallError for varlink::Call<'_> {}
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct r#Controller {
+    pub r#name: String,
+    pub r#version: Option<String>,
+    pub r#pid: i64,
+    pub r#description: Option<String>,
+    pub r#website: Option<String>,
+    pub r#capabilities: Vec<String>,
+    pub r#interested_devices: Vec<String>,
+}
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct r#Device {
     pub r#name: String,
     pub r#vendor: String,
@@ -119,6 +129,7 @@ pub struct r#Device {
     pub r#path: String,
     pub r#classes: Vec<String>,
     pub r#has_uaccess: bool,
+    pub r#controllers: Vec<Controller>,
 }
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct r#Diagnostics {
@@ -176,6 +187,20 @@ pub trait Call_GetDiagnostics: VarlinkCallError {
 }
 impl Call_GetDiagnostics for varlink::Call<'_> {}
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct ListControllers_Reply {
+    pub r#controllers: Vec<Controller>,
+}
+impl varlink::VarlinkReply for ListControllers_Reply {}
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct ListControllers_Args {}
+#[allow(dead_code)]
+pub trait Call_ListControllers: VarlinkCallError {
+    fn reply(&mut self, r#controllers: Vec<Controller>) -> varlink::Result<()> {
+        self.reply_struct(ListControllers_Reply { r#controllers }.into())
+    }
+}
+impl Call_ListControllers for varlink::Call<'_> {}
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct ListDevices_Reply {
     pub r#devices: Vec<Device>,
 }
@@ -217,13 +242,52 @@ pub trait Call_ListRGBDevices: VarlinkCallError {
     }
 }
 impl Call_ListRGBDevices for varlink::Call<'_> {}
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct RegisterController_Reply {}
+impl varlink::VarlinkReply for RegisterController_Reply {}
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct RegisterController_Args {
+    pub r#controller: Controller,
+}
+#[allow(dead_code)]
+pub trait Call_RegisterController: VarlinkCallError {
+    fn reply(&mut self) -> varlink::Result<()> {
+        self.reply_struct(varlink::Reply::parameters(None))
+    }
+}
+impl Call_RegisterController for varlink::Call<'_> {}
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct UnregisterController_Reply {}
+impl varlink::VarlinkReply for UnregisterController_Reply {}
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct UnregisterController_Args {
+    pub r#pid: i64,
+}
+#[allow(dead_code)]
+pub trait Call_UnregisterController: VarlinkCallError {
+    fn reply(&mut self) -> varlink::Result<()> {
+        self.reply_struct(varlink::Reply::parameters(None))
+    }
+}
+impl Call_UnregisterController for varlink::Call<'_> {}
 #[allow(dead_code)]
 pub trait VarlinkInterface {
     fn get_active_game(&self, call: &mut dyn Call_GetActiveGame) -> varlink::Result<()>;
     fn get_diagnostics(&self, call: &mut dyn Call_GetDiagnostics) -> varlink::Result<()>;
+    fn list_controllers(&self, call: &mut dyn Call_ListControllers) -> varlink::Result<()>;
     fn list_devices(&self, call: &mut dyn Call_ListDevices) -> varlink::Result<()>;
     fn list_installed_games(&self, call: &mut dyn Call_ListInstalledGames) -> varlink::Result<()>;
     fn list_rgbdevices(&self, call: &mut dyn Call_ListRGBDevices) -> varlink::Result<()>;
+    fn register_controller(
+        &self,
+        call: &mut dyn Call_RegisterController,
+        r#controller: Controller,
+    ) -> varlink::Result<()>;
+    fn unregister_controller(
+        &self,
+        call: &mut dyn Call_UnregisterController,
+        r#pid: i64,
+    ) -> varlink::Result<()>;
     fn call_upgraded(
         &self,
         _call: &mut varlink::Call,
@@ -240,6 +304,9 @@ pub trait VarlinkClientInterface {
     fn get_diagnostics(
         &mut self,
     ) -> varlink::MethodCall<GetDiagnostics_Args, GetDiagnostics_Reply, Error>;
+    fn list_controllers(
+        &mut self,
+    ) -> varlink::MethodCall<ListControllers_Args, ListControllers_Reply, Error>;
     fn list_devices(&mut self) -> varlink::MethodCall<ListDevices_Args, ListDevices_Reply, Error>;
     fn list_installed_games(
         &mut self,
@@ -247,6 +314,14 @@ pub trait VarlinkClientInterface {
     fn list_rgbdevices(
         &mut self,
     ) -> varlink::MethodCall<ListRGBDevices_Args, ListRGBDevices_Reply, Error>;
+    fn register_controller(
+        &mut self,
+        r#controller: Controller,
+    ) -> varlink::MethodCall<RegisterController_Args, RegisterController_Reply, Error>;
+    fn unregister_controller(
+        &mut self,
+        r#pid: i64,
+    ) -> varlink::MethodCall<UnregisterController_Args, UnregisterController_Reply, Error>;
 }
 #[allow(dead_code)]
 pub struct VarlinkClient {
@@ -277,6 +352,15 @@ impl VarlinkClientInterface for VarlinkClient {
             GetDiagnostics_Args {},
         )
     }
+    fn list_controllers(
+        &mut self,
+    ) -> varlink::MethodCall<ListControllers_Args, ListControllers_Reply, Error> {
+        varlink::MethodCall::<ListControllers_Args, ListControllers_Reply, Error>::new(
+            self.connection.clone(),
+            "com.performativenonsense.contextd.ListControllers",
+            ListControllers_Args {},
+        )
+    }
     fn list_devices(&mut self) -> varlink::MethodCall<ListDevices_Args, ListDevices_Reply, Error> {
         varlink::MethodCall::<ListDevices_Args, ListDevices_Reply, Error>::new(
             self.connection.clone(),
@@ -302,6 +386,26 @@ impl VarlinkClientInterface for VarlinkClient {
             ListRGBDevices_Args {},
         )
     }
+    fn register_controller(
+        &mut self,
+        r#controller: Controller,
+    ) -> varlink::MethodCall<RegisterController_Args, RegisterController_Reply, Error> {
+        varlink::MethodCall::<RegisterController_Args, RegisterController_Reply, Error>::new(
+            self.connection.clone(),
+            "com.performativenonsense.contextd.RegisterController",
+            RegisterController_Args { r#controller },
+        )
+    }
+    fn unregister_controller(
+        &mut self,
+        r#pid: i64,
+    ) -> varlink::MethodCall<UnregisterController_Args, UnregisterController_Reply, Error> {
+        varlink::MethodCall::<UnregisterController_Args, UnregisterController_Reply, Error>::new(
+            self.connection.clone(),
+            "com.performativenonsense.contextd.UnregisterController",
+            UnregisterController_Args { r#pid },
+        )
+    }
 }
 #[allow(dead_code)]
 pub struct VarlinkInterfaceProxy {
@@ -313,7 +417,7 @@ pub fn new(inner: Box<dyn VarlinkInterface + Send + Sync>) -> VarlinkInterfacePr
 }
 impl varlink::Interface for VarlinkInterfaceProxy {
     fn get_description(&self) -> &'static str {
-        "interface com.performativenonsense.contextd\n\n\n# Hardware device type\ntype Device (\n  name: string,\n  vendor: string,\n  vendor_id: string,\n  product_id: string,\n  bus_type: string,\n  path: string,\n  classes: []string,\n  has_uaccess: bool\n)\n\n# Game information\ntype Game (\n  name: string,\n  id: ?string,\n  source: string,\n  pid: ?int\n)\n\n# GPU Information\ntype Gpu (\n  name: string,\n  vendor: string,\n  driver: string,\n  vram_total: int\n)\n\n# System Diagnostics\ntype Diagnostics (\n  vulkan_supported: bool,\n  vulkan_version: ?string,\n  opengl_supported: bool,\n  ram_total: int,\n  cpu_model: string,\n  cpu_count: int,\n  gpus: []Gpu,\n  kernel_version: string,\n  last_updated: int # Unix timestamp\n)\n\n# Returns the currently active game, if any.\nmethod GetActiveGame() -> (game: ?Game)\n\n# Lists all installed games detected on the system.\nmethod ListInstalledGames() -> (games: []Game)\n\n# Lists all connected keyboards, mice, and controllers.\nmethod ListDevices() -> (devices: []Device)\n\n# Lists all RGB controllers, lighting strips, and fans.\nmethod ListRGBDevices() -> (devices: []Device)\n\n# Returns diagnostic information for the system.\nmethod GetDiagnostics() -> (diagnostics: Diagnostics)\n\n"
+        "interface com.performativenonsense.contextd\n\n\n# Hardware device type\ntype Device (\n  name: string,\n  vendor: string,\n  vendor_id: string,\n  product_id: string,\n  bus_type: string,\n  path: string,\n  classes: []string,\n  has_uaccess: bool,\n  controllers: []Controller\n)\n\n# Hint about an application that can control hardware\ntype Controller (\n  name: string,\n  version: ?string,\n  pid: int,\n  description: ?string,\n  website: ?string,\n  capabilities: []string,\n  interested_devices: []string\n)\n\n# Game information\ntype Game (\n  name: string,\n  id: ?string,\n  source: string,\n  pid: ?int\n)\n\n# GPU Information\ntype Gpu (\n  name: string,\n  vendor: string,\n  driver: string,\n  vram_total: int\n)\n\n# System Diagnostics\ntype Diagnostics (\n  vulkan_supported: bool,\n  vulkan_version: ?string,\n  opengl_supported: bool,\n  ram_total: int,\n  cpu_model: string,\n  cpu_count: int,\n  gpus: []Gpu,\n  kernel_version: string,\n  last_updated: int # Unix timestamp\n)\n\n# Returns the currently active game, if any.\nmethod GetActiveGame() -> (game: ?Game)\n\n# Lists all installed games detected on the system.\nmethod ListInstalledGames() -> (games: []Game)\n\n# Lists all connected keyboards, mice, and controllers.\nmethod ListDevices() -> (devices: []Device)\n\n# Lists all RGB controllers, lighting strips, and fans.\nmethod ListRGBDevices() -> (devices: []Device)\n\n# Returns diagnostic information for the system.\nmethod GetDiagnostics() -> (diagnostics: Diagnostics)\n\n# Registers or updates a controller hint.\nmethod RegisterController(controller: Controller) -> ()\n\n# Unregisters a controller hint.\nmethod UnregisterController(pid: int) -> ()\n\n# Lists all active controller hints.\nmethod ListControllers() -> (controllers: []Controller)\n\n"
     }
     fn get_name(&self) -> &'static str {
         "com.performativenonsense.contextd"
@@ -334,6 +438,9 @@ impl varlink::Interface for VarlinkInterfaceProxy {
             "com.performativenonsense.contextd.GetDiagnostics" => self
                 .inner
                 .get_diagnostics(call as &mut dyn Call_GetDiagnostics),
+            "com.performativenonsense.contextd.ListControllers" => self
+                .inner
+                .list_controllers(call as &mut dyn Call_ListControllers),
             "com.performativenonsense.contextd.ListDevices" => {
                 self.inner.list_devices(call as &mut dyn Call_ListDevices)
             }
@@ -343,6 +450,42 @@ impl varlink::Interface for VarlinkInterfaceProxy {
             "com.performativenonsense.contextd.ListRGBDevices" => self
                 .inner
                 .list_rgbdevices(call as &mut dyn Call_ListRGBDevices),
+            "com.performativenonsense.contextd.RegisterController" => {
+                if let Some(args) = req.parameters.clone() {
+                    let args: RegisterController_Args = match serde_json::from_value(args) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            let es = format!("{}", e);
+                            let _ = call.reply_invalid_parameter(es.clone());
+                            return Err(varlink::context!(varlink::ErrorKind::SerdeJsonDe(es)));
+                        }
+                    };
+                    self.inner.register_controller(
+                        call as &mut dyn Call_RegisterController,
+                        args.r#controller,
+                    )
+                } else {
+                    call.reply_invalid_parameter("parameters".into())
+                }
+            }
+            "com.performativenonsense.contextd.UnregisterController" => {
+                if let Some(args) = req.parameters.clone() {
+                    let args: UnregisterController_Args = match serde_json::from_value(args) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            let es = format!("{}", e);
+                            let _ = call.reply_invalid_parameter(es.clone());
+                            return Err(varlink::context!(varlink::ErrorKind::SerdeJsonDe(es)));
+                        }
+                    };
+                    self.inner.unregister_controller(
+                        call as &mut dyn Call_UnregisterController,
+                        args.r#pid,
+                    )
+                } else {
+                    call.reply_invalid_parameter("parameters".into())
+                }
+            }
             m => call.reply_method_not_found(String::from(m)),
         }
     }

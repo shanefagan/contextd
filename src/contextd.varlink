@@ -10,7 +10,19 @@ type Device (
   bus_type: string,
   path: string,
   classes: []string,
-  has_uaccess: bool
+  has_uaccess: bool,
+  controllers: []Controller
+)
+
+# Hint about an application that can control hardware
+type Controller (
+  name: string,
+  version: ?string,
+  pid: int,
+  description: ?string,
+  website: ?string,
+  capabilities: []string,
+  interested_devices: []string
 )
 
 # Game information
@@ -56,4 +68,13 @@ method ListRGBDevices() -> (devices: []Device)
 
 # Returns diagnostic information for the system.
 method GetDiagnostics() -> (diagnostics: Diagnostics)
+
+# Registers or updates a controller hint.
+method RegisterController(controller: Controller) -> ()
+
+# Unregisters a controller hint.
+method UnregisterController(pid: int) -> ()
+
+# Lists all active controller hints.
+method ListControllers() -> (controllers: []Controller)
 

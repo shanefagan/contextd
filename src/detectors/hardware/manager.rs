@@ -130,6 +130,7 @@ mod tests {
             path: "/dev/test".to_string(),
             classes: classes.into_iter().map(|s| s.to_string()).collect(),
             has_uaccess: uaccess,
+            controllers: Vec::new(),
         }
     }
 

@@ -184,6 +184,7 @@ impl UdevDetector {
             path,
             classes,
             has_uaccess,
+            controllers: Vec::new(),
         }
     }
 }

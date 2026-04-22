@@ -46,3 +46,4 @@ AI Agents can leverage `contextd` to:
 - **Hardware Debugging**: If a user asks "Why isn't my mouse working?", an agent can check `ListDevices()` to see if the hardware is detected and if permissions (`uaccess`) are correct.
 - **System Sanity Checks**: Use `GetDiagnostics()` to verify if a user's system meets specific game requirements (VRAM, RAM) or to identify if they are missing critical graphics drivers/libraries (Vulkan/OpenGL).
 - **Game Stats Integration**: Use the detected AppID to fetch external game metadata or launch specific companion overlays.
+- **Cooperative Hardware Management**: Use `RegisterController()` to signal that your agent is managing specific hardware (e.g., "AI Macro Engine"). Other apps like Solaar or OpenRGB will see this hint and can avoid conflicting configurations or suggest troubleshooting steps to the user.

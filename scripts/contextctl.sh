@@ -6,7 +6,9 @@ RGB_OBS_ADDR="unix:/run/contextd/public/contextd-rgb-observer.socket"
 RGB_CTRL_ADDR="unix:/run/contextd/private/contextd-rgb-control.socket"
 
 usage() {
-    echo "Usage: $0 [active|list-games|list-devices|list-rgb|diagnostics|rgb-get|rgb-set|rgb-set-matrix|rgb-subscribe]"
+    echo "Usage: $0 [active|list-games|list-devices|list-rgb|list-controllers|hint|diagnostics|rgb-get|rgb-set|rgb-set-matrix|rgb-subscribe]"
+    echo "  list-controllers      List apps that have registered interest in devices"
+    echo "  hint NAME DEVICE...   Register a quick hint for the current shell"
     echo "  rgb-get/subscribe use the PUBLIC observer socket (0666)"
     echo "  rgb-set uses the PRIVATE control socket (0660, contextd-rgb group)"
     echo "  rgb-set R G B [A]  (Alpha defaults to 255)"
@@ -33,6 +35,30 @@ case $CMD in
         ;;
     list-rgb)
         varlinkctl call $ADDR com.performativenonsense.contextd.ListRGBDevices "{}"
+        ;;
+    list-controllers)
+        varlinkctl call $ADDR com.performativenonsense.contextd.ListControllers "{}"
+        ;;
+    hint)
+        NAME=$1; shift
+        DEVICES=""
+        for dev in "$@"; do
+            if [ -n "$DEVICES" ]; then DEVICES="$DEVICES, "; fi
+            DEVICES="$DEVICES\"$dev\""
+        done
+        varlinkctl call $ADDR com.performativenonsense.contextd.RegisterController "{
+            \"controller\": {
+                \"name\": \"$NAME\",
+                \"pid\": $$,
+                \"description\": \"Manual hint from contextctl\",
+                \"capabilities\": [\"manual\"],
+                \"interested_devices\": [$DEVICES]
+            }
+        }"
+        echo "Hint registered for PID $$. Press Ctrl+C to unregister and exit."
+        # Keep alive until interrupted
+        trap "varlinkctl call $ADDR com.performativenonsense.contextd.UnregisterController '{\"pid\": $$}'; exit" SIGINT SIGTERM
+        while true; do sleep 1; done
         ;;
     diagnostics)
         varlinkctl call $ADDR com.performativenonsense.contextd.GetDiagnostics "{}"
