@@ -1,7 +1,11 @@
-#[allow(clippy::all, nonstandard_style, unused_imports, dead_code)]
-pub mod control;
+pub mod control {
+    #![allow(clippy::all, non_snake_case, non_camel_case_types, unused_imports)]
+    include!(concat!(env!("OUT_DIR"), "/control.rs"));
+}
 
-#[allow(clippy::all, nonstandard_style, unused_imports, dead_code)]
-pub mod observer;
+pub mod observer {
+    #![allow(clippy::all, non_snake_case, non_camel_case_types, unused_imports)]
+    include!(concat!(env!("OUT_DIR"), "/observer.rs"));
+}
 
 pub mod service;

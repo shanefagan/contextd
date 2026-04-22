@@ -4,9 +4,10 @@
 //! hardware inventory, diagnostics) via Varlink interfaces. It can run in either
 //! "Core" mode (system context) or "RGB" mode (passive lighting context).
 
-#[allow(clippy::all, nonstandard_style, unused_imports, dead_code)]
-#[path = "contextd.rs"]
-mod contextd;
+mod contextd {
+    #![allow(clippy::all, non_snake_case, non_camel_case_types, unused_imports)]
+    include!(concat!(env!("OUT_DIR"), "/contextd.rs"));
+}
 mod detectors;
 
 mod service;
@@ -56,6 +57,38 @@ fn spawn_permission_fixer(path: String, mode: u32, use_rgb_group: bool) {
     });
 }
 
+/// A wrapper for Varlink interfaces that allows overriding the static description
+/// string provided by the generated code.
+///
+/// This is used to load the interface definition directly from the `.varlink` file
+/// at compile time using `include_str!`, ensuring that the `get_description`
+/// endpoint always stays in sync with the source of truth without manual updates.
+struct DynamicInterface {
+    /// The actual generated interface implementation
+    inner: Box<dyn varlink::Interface + Send + Sync>,
+    /// The dynamic description string (usually from an include_str! macro)
+    description: &'static str,
+}
+
+impl varlink::Interface for DynamicInterface {
+    fn get_description(&self) -> &'static str {
+        self.description
+    }
+    fn get_name(&self) -> &'static str {
+        self.inner.get_name()
+    }
+    fn call(&self, call: &mut varlink::Call) -> varlink::Result<()> {
+        self.inner.call(call)
+    }
+    fn call_upgraded(
+        &self,
+        call: &mut varlink::Call,
+        bufreader: &mut dyn std::io::BufRead,
+    ) -> varlink::Result<Vec<u8>> {
+        self.inner.call_upgraded(call, bufreader)
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     // Initialize logging with info level by default
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
@@ -95,8 +128,11 @@ fn main() -> anyhow::Result<()> {
         let _ = std::fs::remove_file(ctrl_addr.trim_start_matches("unix:"));
 
         // 1. Start Observer Server (Public - 0666)
-        let observer_interface = vec![Box::new(rgb::observer::new(Box::new(rgb_service.clone())))
-            as Box<dyn varlink::Interface + Send + Sync>];
+        let observer_interface = vec![Box::new(DynamicInterface {
+            inner: Box::new(rgb::observer::new(Box::new(rgb_service.clone()))),
+            description: include_str!("rgb/observer.varlink"),
+        }) as Box<dyn varlink::Interface + Send + Sync>];
+
         let observer_service = VarlinkService::new(
             "com.performativenonsense",
             "Context Observer",
@@ -125,8 +161,11 @@ fn main() -> anyhow::Result<()> {
         });
 
         // 2. Start Control Server (Private - 0666)
-        let control_interface = vec![Box::new(rgb::control::new(Box::new(rgb_service)))
-            as Box<dyn varlink::Interface + Send + Sync>];
+        let control_interface = vec![Box::new(DynamicInterface {
+            inner: Box::new(rgb::control::new(Box::new(rgb_service))),
+            description: include_str!("rgb/control.varlink"),
+        }) as Box<dyn varlink::Interface + Send + Sync>];
+
         let control_service = VarlinkService::new(
             "com.performativenonsense",
             "Context Control",
@@ -162,8 +201,12 @@ fn main() -> anyhow::Result<()> {
             diagnostics_manager: Arc::clone(&diagnostics_manager),
             controller_manager: Arc::clone(&controller_manager),
         };
+
         let interfaces: Vec<Box<dyn varlink::Interface + Send + Sync>> =
-            vec![Box::new(contextd::new(Box::new(service)))];
+            vec![Box::new(DynamicInterface {
+                inner: Box::new(contextd::new(Box::new(service))),
+                description: include_str!("contextd.varlink"),
+            })];
 
         let varlink_service = VarlinkService::new(
             "com.performativenonsense",
