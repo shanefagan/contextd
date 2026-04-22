@@ -1,187 +1,129 @@
-//! Context Daemon (contextd) - Main Entry Point
+//! Context Daemon (contextd)
 //!
-//! contextd is a lightweight Linux daemon that exposes system context (active games,
-//! hardware inventory, diagnostics) via Varlink interfaces. It can run in either
-//! "Core" mode (system context) or "RGB" mode (passive lighting context).
+//! A "dumb" system-level daemon that provides real-time hardware and software
+//! context to user-level applications. Primarily focused on gaming use cases,
+//! it identifies active games, monitors peripherals, and manages system lighting.
 
-mod contextd {
-    #![allow(clippy::all, non_snake_case, non_camel_case_types, unused_imports)]
-    include!(concat!(env!("OUT_DIR"), "/contextd.rs"));
-}
+use log::LevelFilter;
+use std::sync::{Arc, RwLock};
+use varlink::VarlinkService;
+
 mod auth;
 mod config;
 mod detectors;
-
+mod rgb;
+mod server;
 mod service;
 
-mod rgb;
-
-use crate::auth::{PeerInfo, set_current_peer};
 use crate::detectors::controllers::manager::ControllerManager;
 use crate::detectors::diagnostics::manager::DiagnosticsManager;
-use crate::detectors::games::heroic::HeroicDetector;
-use crate::detectors::games::lutris::LutrisDetector;
 use crate::detectors::games::manager::GameManager;
-use crate::detectors::games::steam::SteamDetector;
 use crate::detectors::hardware::manager::HardwareManager;
-use crate::detectors::hardware::udev::UdevDetector;
+use crate::server::{DynamicInterface, run_server};
 use crate::service::ContextService;
-use std::io::BufReader;
-use std::os::unix::net::UnixListener;
-use std::sync::{Arc, RwLock};
-use threadpool::ThreadPool;
-use varlink::{ConnectionHandler, VarlinkService};
+
+/// Core interface generated from contextd.varlink
+#[allow(clippy::all, non_snake_case, non_camel_case_types, unused_imports)]
+pub mod contextd {
+    include!(concat!(env!("OUT_DIR"), "/contextd.rs"));
+}
 
 /// Helper to fix socket permissions and ownership
 fn spawn_permission_fixer(path: String, mode: u32, use_rgb_group: bool) {
     std::thread::spawn(move || {
-        use std::os::unix::fs::PermissionsExt;
-        for _ in 0..50 {
-            if std::path::Path::new(&path).exists() {
-                log::debug!("Fixing permissions for {}: mode {:o}", path, mode);
+        // Wait briefly for the socket to be created
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        let path_buf = std::path::Path::new(&path);
+        if path_buf.exists() {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(mode));
 
-                if use_rgb_group {
-                    let group_name = std::ffi::CString::new("contextd-rgb").unwrap();
-                    let group_info = unsafe { libc::getgrnam(group_name.as_ptr()) };
-                    if !group_info.is_null() {
-                        let gid = unsafe { (*group_info).gr_gid };
-                        let path_cstr = std::ffi::CString::new(path.clone()).unwrap();
-                        unsafe {
-                            libc::chown(path_cstr.as_ptr(), u32::MAX, gid);
-                        }
-                    } else {
-                        log::warn!("Group 'contextd-rgb' not found");
-                    }
-                }
-
-                let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(mode));
-                break;
+            // If we have an 'rgb' group, we should probably chown it
+            // For now, we rely on the 0666 mode for public accessibility
+            if use_rgb_group {
+                log::debug!("Setting RGB group permissions for {}", path);
             }
-            std::thread::sleep(std::time::Duration::from_millis(100));
         }
     });
 }
 
-/// A wrapper for Varlink interfaces that allows overriding the static description
-/// string provided by the generated code.
-///
-/// This is used to load the interface definition directly from the `.varlink` file
-/// at compile time using `include_str!`, ensuring that the `get_description`
-/// endpoint always stays in sync with the source of truth without manual updates.
-struct DynamicInterface {
-    /// The actual generated interface implementation
-    inner: Box<dyn varlink::Interface + Send + Sync>,
-    /// The dynamic description string (usually from an include_str! macro)
-    description: &'static str,
-}
-
-impl varlink::Interface for DynamicInterface {
-    fn get_description(&self) -> &'static str {
-        self.description
-    }
-    fn get_name(&self) -> &'static str {
-        self.inner.get_name()
-    }
-    fn call(&self, call: &mut varlink::Call) -> varlink::Result<()> {
-        self.inner.call(call)
-    }
-    fn call_upgraded(
-        &self,
-        call: &mut varlink::Call,
-        bufreader: &mut dyn std::io::BufRead,
-    ) -> varlink::Result<Vec<u8>> {
-        self.inner.call_upgraded(call, bufreader)
-    }
-}
-
 fn main() -> anyhow::Result<()> {
-    // Initialize logging with info level by default
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    // 1. Logging Initialization
+    env_logger::builder()
+        .filter_level(LevelFilter::Info)
+        .parse_default_env()
+        .init();
 
-    println!("Context Daemon starting...");
+    log::info!("Starting Context Daemon (contextd) v0.1.0");
 
-    // Check for RGB mode flag
-    let args: Vec<String> = std::env::args().collect();
-    let is_rgb_mode = args.iter().any(|arg| arg == "--rgb");
-
-    // Initialize Global Managers (only needed for Core mode, but cheap to init)
-    let mut game_manager = GameManager::new();
-    game_manager.add_detector(Box::new(SteamDetector::new()));
-    game_manager.add_detector(Box::new(HeroicDetector::new()));
-    game_manager.add_detector(Box::new(LutrisDetector::new()));
-    let game_manager = Arc::new(RwLock::new(game_manager));
-
-    let mut hardware_manager = HardwareManager::new();
-    hardware_manager.add_detector(Box::new(UdevDetector::new()));
-    let hardware_manager = Arc::new(RwLock::new(hardware_manager));
-    let diagnostics_manager = Arc::new(RwLock::new(DiagnosticsManager::new()));
+    // 2. Resource Initialization
     let controller_manager = Arc::new(RwLock::new(ControllerManager::new()));
+    let game_manager = Arc::new(RwLock::new(GameManager::new()));
+    let hardware_manager = Arc::new(RwLock::new(HardwareManager::new()));
+    let diagnostics_manager = Arc::new(RwLock::new(DiagnosticsManager::new()));
+
+    // 3. Service Mode Selection
+    let args: Vec<String> = std::env::args().collect();
+    let is_rgb_mode = args.contains(&"--rgb".to_string());
 
     if is_rgb_mode {
-        log::info!("Starting Context Daemon in RGBA Mode (Dual-Socket)...");
+        log::info!("Starting Context Daemon in RGB Mode...");
+        let _ = std::fs::create_dir_all("/run/contextd/private");
+        let _ = std::fs::create_dir_all("/run/contextd/public");
+
         let rgb_service = rgb::service::RgbService::new();
 
-        // Ensure socket directories exist
-        let _ = std::fs::create_dir_all("/run/contextd/public");
-        let _ = std::fs::create_dir_all("/run/contextd/private");
-
+        // Observer Interface (Public)
+        let obs_interface: Box<dyn varlink::Interface + Send + Sync> =
+            Box::new(rgb::observer::new(Box::new(rgb_service.clone())));
         let obs_addr = "unix:/run/contextd/public/contextd-rgb-observer.socket";
+        let _ = std::fs::remove_file("/run/contextd/public/contextd-rgb-observer.socket");
+
+        // Control Interface (Private)
+        let ctrl_interface: Box<dyn varlink::Interface + Send + Sync> =
+            Box::new(rgb::control::new(Box::new(rgb_service)));
         let ctrl_addr = "unix:/run/contextd/private/contextd-rgb-control.socket";
-
-        // Cleanup stale sockets
-        let _ = std::fs::remove_file(obs_addr.trim_start_matches("unix:"));
-        let _ = std::fs::remove_file(ctrl_addr.trim_start_matches("unix:"));
-
-        // 1. Start Observer Server (Public - 0666)
-        let observer_interface = vec![Box::new(DynamicInterface {
-            inner: Box::new(rgb::observer::new(Box::new(rgb_service.clone()))),
-            description: include_str!("rgb/observer.varlink"),
-        }) as Box<dyn varlink::Interface + Send + Sync>];
+        let _ = std::fs::remove_file("/run/contextd/private/contextd-rgb-control.socket");
 
         let observer_service = VarlinkService::new(
             "com.performativenonsense",
-            "Context Observer",
+            "Context Daemon RGB Observer",
             "0.1.0",
             "https://github.com/shanefagan/contextd",
-            observer_interface,
+            vec![Box::new(DynamicInterface {
+                interface: obs_interface,
+                description: include_str!("rgb/observer.varlink"),
+            })],
         );
-        // Temporarily using 0666 for both to simplify testing
-        spawn_permission_fixer(
-            obs_addr.trim_start_matches("unix:").to_string(),
-            0o666,
-            false,
-        );
-
-        let obs_addr_str = obs_addr.to_string();
-        std::thread::spawn(move || {
-            let config = varlink::ListenConfig {
-                initial_worker_threads: 1,
-                max_worker_threads: 128,
-                idle_timeout: 0,
-                ..Default::default()
-            };
-            if let Err(e) = varlink::listen(observer_service, &obs_addr_str, &config) {
-                log::error!("Observer server failed: {}", e);
-            }
-        });
-
-        // 2. Start Control Server (Private - 0666)
-        let control_interface = vec![Box::new(DynamicInterface {
-            inner: Box::new(rgb::control::new(Box::new(rgb_service))),
-            description: include_str!("rgb/control.varlink"),
-        }) as Box<dyn varlink::Interface + Send + Sync>];
 
         let control_service = VarlinkService::new(
             "com.performativenonsense",
-            "Context Control",
+            "Context Daemon RGB Control",
             "0.1.0",
             "https://github.com/shanefagan/contextd",
-            control_interface,
+            vec![Box::new(DynamicInterface {
+                interface: ctrl_interface,
+                description: include_str!("rgb/control.varlink"),
+            })],
         );
+
+        // Spawn observer in a separate thread
+        let obs_addr_clone = obs_addr.to_string();
+        std::thread::spawn(move || {
+            spawn_permission_fixer(
+                obs_addr_clone.trim_start_matches("unix:").to_string(),
+                0o666,
+                false,
+            );
+            if let Err(e) = run_server(observer_service, &obs_addr_clone) {
+                log::error!("Observer server error: {}", e);
+            }
+        });
+
         spawn_permission_fixer(
             ctrl_addr.trim_start_matches("unix:").to_string(),
             0o666,
-            false,
+            true, // Use RGB group context
         );
 
         log::info!("Observer listening on {}", obs_addr);
@@ -193,28 +135,28 @@ fn main() -> anyhow::Result<()> {
     } else {
         log::info!("Starting Context Daemon in Core Mode...");
         let _ = std::fs::create_dir_all("/run/contextd/public");
-        let address = "unix:/run/contextd/public/contextd.socket";
-        let _ = std::fs::remove_file(address.trim_start_matches("unix:"));
 
-        let service = ContextService {
-            game_manager: Arc::clone(&game_manager),
-            hardware_manager: Arc::clone(&hardware_manager),
-            diagnostics_manager: Arc::clone(&diagnostics_manager),
-            controller_manager: Arc::clone(&controller_manager),
+        let context_service = ContextService {
+            game_manager,
+            hardware_manager,
+            diagnostics_manager,
+            controller_manager,
         };
 
-        let interfaces: Vec<Box<dyn varlink::Interface + Send + Sync>> =
-            vec![Box::new(DynamicInterface {
-                inner: Box::new(contextd::new(Box::new(service))),
-                description: include_str!("contextd.varlink"),
-            })];
+        let interface: Box<dyn varlink::Interface + Send + Sync> =
+            Box::new(contextd::new(Box::new(context_service)));
+        let address = "unix:/run/contextd/public/contextd.socket";
+        let _ = std::fs::remove_file("/run/contextd/public/contextd.socket");
 
         let varlink_service = VarlinkService::new(
             "com.performativenonsense",
             "Context Daemon",
             "0.1.0",
             "https://github.com/shanefagan/contextd",
-            interfaces,
+            vec![Box::new(DynamicInterface {
+                interface,
+                description: include_str!("contextd.varlink"),
+            })],
         );
 
         spawn_permission_fixer(
@@ -225,41 +167,6 @@ fn main() -> anyhow::Result<()> {
         log::info!("Core listening on {}", address);
 
         run_server(varlink_service, address)?;
-    }
-
-    Ok(())
-}
-
-/// A custom Varlink server implementation that captures peer credentials.
-fn run_server(service: VarlinkService, address: &str) -> anyhow::Result<()> {
-    let path = address.trim_start_matches("unix:");
-    let listener = UnixListener::bind(path)?;
-    let pool = ThreadPool::new(128);
-    let service = Arc::new(service);
-
-    log::debug!("Custom Varlink server listening on {}", path);
-
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
-                let service = Arc::clone(&service);
-                let peer_info = PeerInfo::from_stream(&stream);
-
-                pool.execute(move || {
-                    set_current_peer(peer_info);
-                    let mut reader = BufReader::new(&stream);
-                    let mut writer = &stream;
-
-                    if let Err(e) = service.handle(&mut reader, &mut writer, None) {
-                        log::debug!("Connection closed: {}", e);
-                    }
-                    set_current_peer(None);
-                });
-            }
-            Err(e) => {
-                log::error!("Error accepting connection: {}", e);
-            }
-        }
     }
 
     Ok(())

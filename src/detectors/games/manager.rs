@@ -1,3 +1,6 @@
+use super::heroic::HeroicDetector;
+use super::lutris::LutrisDetector;
+use super::steam::SteamDetector;
 use super::{Game, GameDetector};
 use crate::config::CONFIG;
 use std::time::{Duration, Instant};
@@ -11,12 +14,17 @@ pub struct GameManager {
 impl GameManager {
     pub fn new() -> Self {
         Self {
-            detectors: Vec::new(),
+            detectors: vec![
+                Box::new(SteamDetector::new()),
+                Box::new(LutrisDetector::new()),
+                Box::new(HeroicDetector::new()),
+            ],
             installed_cache: None,
             active_cache: None,
         }
     }
 
+    #[allow(dead_code)]
     pub fn add_detector(&mut self, detector: Box<dyn GameDetector>) {
         self.detectors.push(detector);
         self.installed_cache = None; // Invalidate cache
@@ -59,6 +67,7 @@ impl GameManager {
         game
     }
 }
+
 impl Default for GameManager {
     fn default() -> Self {
         Self::new()
@@ -89,6 +98,9 @@ mod tests {
     #[test]
     fn test_game_manager_cache() {
         let mut mgr = GameManager::new();
+        // Clear default detectors for testing
+        mgr.detectors.clear();
+
         let game = Game {
             name: "Test Game".to_string(),
             id: Some("123".to_string()),
@@ -107,8 +119,6 @@ mod tests {
         assert_eq!(games[0].name, "Test Game");
 
         // Even if we add more games to the detector, cache should return old value
-        // Note: In this simple mock we can't easily change the detector's state since it's boxed
-        // but we can verify that the second call is immediate.
         let games2 = mgr.list_all_installed();
         assert_eq!(games2.len(), 1);
     }

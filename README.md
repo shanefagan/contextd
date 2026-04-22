@@ -105,12 +105,27 @@ To detach/uninstall:
 sudo portablectl detach contextd
 ```
 
+## Configuration
+
+`contextd` can be configured via a TOML file located at `/etc/contextd/config.toml`. A sample configuration is provided in `examples/config.sample.toml`.
+
+### Key Settings:
+- **TTLs**: Control how frequently the daemon polls for games, hardware, and diagnostics.
+- **Blacklisting**: Ignore specific processes or hardware devices.
+- **Security**: Authorize specific systemd units for restricted operations.
+
+## Security & Access Control
+
+The daemon implements a "dumb" but secure peer validation system:
+- **Unprivileged Public Sockets**: Basic context (active game, hardware list) is accessible via `/run/contextd/public/*.socket` to all users.
+- **Restricted Private Sockets**: Control operations (RGB lighting, controller registration) are restricted via `/run/contextd/private/*.socket`.
+- **Peer Validation**: Uses `SO_PEERCRED` to identify the systemd unit of the calling process.
+- **Granular Authorization**: Restricted methods are only allowed if the caller's systemd unit is listed in the `authorized_units` whitelist in `config.toml`.
+
 ## Development
 
 - **Repository**: [https://github.com/shanefagan/contextd](https://github.com/shanefagan/contextd)
-
 - **Author**: Shane Fagan
-
 
 ## License
 

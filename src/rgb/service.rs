@@ -7,7 +7,7 @@
 //! 1. Observer: A read-only/subscriber interface for hardware drivers.
 //! 2. Control: A write-only interface for authorized lighting controllers.
 
-use crate::auth::get_current_peer;
+use crate::auth::verify_unit_access;
 use crate::config::CONFIG;
 use crate::rgb::control;
 use crate::rgb::observer;
@@ -140,23 +140,9 @@ impl control::VarlinkInterface for RgbService {
         matrix: Option<control::Matrix>,
     ) -> varlink::Result<()> {
         // 0. Authorization Logic
-        if !CONFIG.auth.authorized_units.is_empty() {
-            let peer = get_current_peer();
-            let authorized = if let Some(p) = &peer
-                && let Some(unit) = &p.unit
-            {
-                CONFIG.auth.authorized_units.contains(unit)
-            } else {
-                false
-            };
-
-            if !authorized {
-                let unit = peer
-                    .and_then(|p| p.unit)
-                    .unwrap_or_else(|| "unknown".to_string());
-                log::warn!("Unauthorized access attempt from unit: {}", unit);
-                return call.reply_permission_denied(unit);
-            }
+        if let Err(unit) = verify_unit_access(&CONFIG.auth.authorized_units) {
+            log::warn!("Unauthorized access attempt from unit: {}", unit);
+            return call.reply_permission_denied(unit);
         }
 
         // 1. Validation Logic

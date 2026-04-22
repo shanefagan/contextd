@@ -83,6 +83,27 @@ impl PeerInfo {
     }
 }
 
+/// Checks if the current calling peer is authorized based on a list of systemd units.
+/// Returns Ok(()) if authorized (or if the list is empty), otherwise returns Err(unit_name).
+pub fn verify_unit_access(authorized_units: &[String]) -> Result<(), String> {
+    if authorized_units.is_empty() {
+        return Ok(());
+    }
+
+    let peer = get_current_peer();
+    let unit = peer
+        .as_ref()
+        .and_then(|p| p.unit.as_ref())
+        .map(|s| s.as_str())
+        .unwrap_or("unknown");
+
+    if authorized_units.iter().any(|u| u == unit) {
+        Ok(())
+    } else {
+        Err(unit.to_string())
+    }
+}
+
 /// Sets the current peer info for the local thread.
 pub fn set_current_peer(info: Option<PeerInfo>) {
     CURRENT_PEER.with(|p| *p.borrow_mut() = info);

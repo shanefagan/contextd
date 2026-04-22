@@ -18,6 +18,9 @@
 
 
 ## Phase 7: Refinement & Security Hardening
-- [ ] **Systemd Peer Validation**: Use `SO_PEERCRED` to identify calling services and apply granular access control based on systemd units.
+- [x] **Systemd Peer Validation**: Uses `SO_PEERCRED` to identify calling services and apply granular access control based on systemd units.
 - [x] **Configuration Overrides**: Implemented `src/config.rs` with `/etc/contextd/config.toml` support for TTLs and blacklisting.
+- [x] **Directory Structure Cleanup**: Refactored logic into `server.rs`, `auth.rs`, and centralized detector management.
+- [ ] **Privacy Masking**: Implement logic to mask specific apps/devices from public Varlink calls via `config.toml`.
+- [ ] **Expanded Launcher Support**: Add Legendary (Epic) and Minigalaxy (GOG) manifests.
 - [ ] **Arch Linux PKGBUILD**: Finalize the AUR package for the 1.0 release.

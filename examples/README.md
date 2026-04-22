@@ -38,4 +38,12 @@ Remember the daemon exposes three interfaces:
 2. **RGB Observer**: `/run/contextd/public/contextd-rgb-observer.socket`
 3. **RGB Control**: `/run/contextd/private/contextd-rgb-control.socket`
 
+## Security Note
+
+Methods like `RegisterController` and `SetLightingContext` are restricted. To run examples that use these methods (like `register_controller.py`), you must ensure:
+1. You are connecting to the **Private** socket path if applicable.
+2. The systemd unit running your script/app is listed in the `authorized_units` whitelist in `/etc/contextd/config.toml`.
+
+If you are running an example script manually in a terminal, it will likely be identified by its `session-X.scope`. You can add that scope to the whitelist for testing, or run the script as a transient service with `systemd-run`.
+
 > **Note:** The daemon must be running for these examples to work.

@@ -12,8 +12,8 @@ If you are an AI assistant working on this repository or a project that consumes
 > [!NOTE]
 > There is an **experimental and optional** RGB control interface available (`com.performativenonsense.contextd.rgb`) which allows for active state changes on supported hardware when enabled.
 
-- **Unprivileged Access**: No root/sudo is required to query the core socket or RGB sockets. The RGB control socket is currently configured with open permissions (0666).
-- **Authoritative Control**: To persist an authorized RGB controller across boots, a superuser can create `/etc/contextd/rgb-authorized-app` containing the process name of the allowed controller.
+- **Unprivileged Access**: No root/sudo is required to query the core socket or RGB sockets.
+- **Authoritative Control**: To authorize an application (e.g., an RGB controller), a superuser must add the application's systemd unit name (e.g., `openrgb.service`) to the `authorized_units` list in `/etc/contextd/config.toml`.
 - **Data Integrity**: Process IDs and hardware nodes are verified by the daemon before being reported.
 
 ### 2. Available Interfaces
