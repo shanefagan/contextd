@@ -44,6 +44,8 @@ We should leverage systemd security features to limit the daemon's powers:
    - `NoNewPrivileges=yes`
 3. **Socket Permissions**:
    - For ease of integration and zero-configuration use, the daemon exposes `0666` public sockets. Both the Core service and RGB service share the same `DynamicUser` to cleanly manage files in `/run/contextd`.
+4. **Resilient Subscriptions**:
+   - The RGB daemon uses bounded (`mpsc::sync_channel`) channels with non-blocking sends (`try_send`) for lighting updates. This prevents a slow or malicious client on the observer socket from exhausting daemon memory by buffering unbounded events.
 
 ---
 

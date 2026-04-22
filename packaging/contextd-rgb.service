@@ -17,7 +17,6 @@ NoNewPrivileges=yes
 
 # Sandboxing & Security
 ProtectSystem=strict
-ProtectHome=read-only
 ProtectHostname=yes
 ProtectKernelLogs=yes
 ProtectKernelModules=yes

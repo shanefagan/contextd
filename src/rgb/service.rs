@@ -18,7 +18,7 @@ const MAX_MATRIX_SIZE: i64 = 420;
 #[derive(Clone)]
 pub struct RgbService {
     context: Arc<RwLock<LightingState>>,
-    subscribers: Arc<RwLock<Vec<mpsc::Sender<LightingUpdate>>>>,
+    subscribers: Arc<RwLock<Vec<mpsc::SyncSender<LightingUpdate>>>>,
 }
 
 /// Internal state holding the current lighting context.
@@ -55,7 +55,14 @@ impl RgbService {
     /// Helper to broadcast updates to all active subscribers
     fn broadcast(&self, update: LightingUpdate) {
         let mut subs = self.subscribers.write().unwrap();
-        subs.retain(|tx| tx.send(update.clone()).is_ok());
+        subs.retain(|tx| match tx.try_send(update.clone()) {
+            Ok(_) => true,
+            Err(mpsc::TrySendError::Full(_)) => {
+                log::debug!("Subscriber too slow, dropping");
+                false
+            }
+            Err(mpsc::TrySendError::Disconnected(_)) => false,
+        });
     }
 
     /// Validates that an RGBA color has components within the 0-255 range
@@ -98,7 +105,7 @@ impl observer::VarlinkInterface for RgbService {
         &self,
         call: &mut dyn observer::Call_SubscribeLightingContext,
     ) -> varlink::Result<()> {
-        let (tx, rx) = mpsc::channel();
+        let (tx, rx) = mpsc::sync_channel(16);
         {
             let mut subs = self.subscribers.write().unwrap();
             subs.push(tx);
@@ -138,6 +145,9 @@ impl control::VarlinkInterface for RgbService {
         }
 
         if let Some(m) = &matrix {
+            if m.size <= 0 {
+                return call.reply_invalid_matrix_size(m.size, m.data.len() as i64);
+            }
             if m.size > MAX_MATRIX_SIZE {
                 return call.reply_matrix_too_large(MAX_MATRIX_SIZE);
             }
