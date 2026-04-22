@@ -1,7 +1,6 @@
 use super::{Device, HardwareDetector};
+use crate::config::CONFIG;
 use std::time::{Duration, Instant};
-
-const CACHE_DURATION: Duration = Duration::from_secs(10); // Hardware changes less often
 
 pub struct HardwareManager {
     detectors: Vec<Box<dyn HardwareDetector>>,
@@ -32,8 +31,9 @@ impl HardwareManager {
     }
 
     pub fn list_all_devices(&mut self) -> Vec<Device> {
+        let ttl = Duration::from_secs(CONFIG.ttls.hardware);
         if let Some((cache, ts)) = &self.cache
-            && ts.elapsed() < CACHE_DURATION
+            && ts.elapsed() < ttl
         {
             return cache.clone();
         }
@@ -42,6 +42,7 @@ impl HardwareManager {
             .detectors
             .iter()
             .flat_map(|d| d.list_devices())
+            .filter(|d| !CONFIG.blacklist.devices.contains(&d.path))
             .filter(|d| self.is_gaming_device(d))
             .collect();
 
@@ -50,8 +51,9 @@ impl HardwareManager {
     }
 
     pub fn list_rgb_devices(&mut self) -> Vec<Device> {
+        let ttl = Duration::from_secs(CONFIG.ttls.hardware);
         if let Some((cache, ts)) = &self.rgb_cache
-            && ts.elapsed() < CACHE_DURATION
+            && ts.elapsed() < ttl
         {
             return cache.clone();
         }
@@ -60,6 +62,7 @@ impl HardwareManager {
             .detectors
             .iter()
             .flat_map(|d| d.list_devices())
+            .filter(|d| !CONFIG.blacklist.devices.contains(&d.path))
             .filter(|d| self.is_rgb_device(d))
             .collect();
 

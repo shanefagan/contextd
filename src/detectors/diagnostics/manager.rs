@@ -32,8 +32,9 @@ impl DiagnosticsManager {
             .unwrap()
             .as_secs() as i64;
 
+        let ttl = crate::config::CONFIG.ttls.diagnostics as i64;
         let needs_refresh = if let Some(ref diag) = self.cached_diagnostics {
-            now - diag.last_updated > 300 // 5 minutes cache
+            now - diag.last_updated > ttl
         } else {
             true
         };

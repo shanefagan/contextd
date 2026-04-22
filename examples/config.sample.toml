@@ -1,0 +1,16 @@
+# contextd configuration file
+# Place this at /etc/contextd/config.toml
+
+[ttls]
+# TTL for active game detection in seconds (default 5)
+games = 5
+# TTL for hardware inventory in seconds (default 10)
+hardware = 10
+# TTL for system diagnostics in seconds (default 300)
+diagnostics = 300
+
+[blacklist]
+# Process names to ignore in game detection
+# processes = ["Calculator"]
+# Hardware paths (udev paths) to ignore
+# devices = ["/sys/devices/virtual/input/input231"]

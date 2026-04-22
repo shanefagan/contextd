@@ -8,6 +8,7 @@ mod contextd {
     #![allow(clippy::all, non_snake_case, non_camel_case_types, unused_imports)]
     include!(concat!(env!("OUT_DIR"), "/contextd.rs"));
 }
+mod config;
 mod detectors;
 
 mod service;

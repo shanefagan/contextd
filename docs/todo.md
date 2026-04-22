@@ -19,5 +19,5 @@
 
 ## Phase 7: Refinement & Security Hardening
 - [ ] **Systemd Peer Validation**: Use `SO_PEERCRED` to identify calling services and apply granular access control based on systemd units.
-- [ ] **Configuration Overrides**: Support `/etc/contextd/config.toml` for manual TTL tuning and process blacklisting.
+- [x] **Configuration Overrides**: Implemented `src/config.rs` with `/etc/contextd/config.toml` support for TTLs and blacklisting.
 - [ ] **Arch Linux PKGBUILD**: Finalize the AUR package for the 1.0 release.

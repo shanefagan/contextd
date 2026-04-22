@@ -1,7 +1,6 @@
 use super::{Game, GameDetector};
+use crate::config::CONFIG;
 use std::time::{Duration, Instant};
-
-const CACHE_DURATION: Duration = Duration::from_secs(5);
 
 pub struct GameManager {
     detectors: Vec<Box<dyn GameDetector>>,
@@ -24,8 +23,9 @@ impl GameManager {
     }
 
     pub fn list_all_installed(&mut self) -> Vec<Game> {
+        let ttl = Duration::from_secs(CONFIG.ttls.games);
         if let Some((cache, ts)) = &self.installed_cache
-            && ts.elapsed() < CACHE_DURATION
+            && ts.elapsed() < ttl
         {
             return cache.clone();
         }
@@ -34,6 +34,7 @@ impl GameManager {
             .detectors
             .iter()
             .flat_map(|d| d.list_installed())
+            .filter(|g| !CONFIG.blacklist.processes.contains(&g.name))
             .collect();
 
         self.installed_cache = Some((games.clone(), Instant::now()));
@@ -41,13 +42,18 @@ impl GameManager {
     }
 
     pub fn get_active_game(&mut self) -> Option<Game> {
+        let ttl = Duration::from_secs(CONFIG.ttls.games);
         if let Some((cache, ts)) = &self.active_cache
-            && ts.elapsed() < CACHE_DURATION
+            && ts.elapsed() < ttl
         {
             return cache.clone();
         }
 
-        let game = self.detectors.iter().flat_map(|d| d.list_running()).next();
+        let game = self
+            .detectors
+            .iter()
+            .flat_map(|d| d.list_running())
+            .find(|g| !CONFIG.blacklist.processes.contains(&g.name));
 
         self.active_cache = Some((game.clone(), Instant::now()));
         game
