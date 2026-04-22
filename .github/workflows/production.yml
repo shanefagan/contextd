@@ -144,7 +144,7 @@ jobs:
         cp rpmbuild/RPMS/x86_64/*.rpm dist/${{ env.NAME }}-${{ env.VERSION }}-x86_64.rpm
 
     - name: Upload Workspace Artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: contextd-builds
         path: dist/*
