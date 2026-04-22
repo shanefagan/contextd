@@ -15,6 +15,13 @@ BindReadOnlyPaths=/usr/lib /usr/lib64 /lib /lib64 /etc/ld.so.cache -/etc/context
 ProtectHome=read-only
 NoNewPrivileges=yes
 
+# Accounting
+CPUAccounting=yes
+MemoryAccounting=yes
+IOAccounting=yes
+TasksAccounting=yes
+IPAccounting=yes
+
 # Sandboxing & Security
 ProtectSystem=strict
 ProtectHostname=yes

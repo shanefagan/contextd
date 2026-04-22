@@ -16,6 +16,13 @@ CapabilityBoundingSet=CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
 AmbientCapabilities=CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
 NoNewPrivileges=yes
 
+# Accounting
+CPUAccounting=yes
+MemoryAccounting=yes
+IOAccounting=yes
+TasksAccounting=yes
+IPAccounting=yes
+
 # Sandboxing & Security
 ProtectSystem=strict
 ProtectHome=read-only
