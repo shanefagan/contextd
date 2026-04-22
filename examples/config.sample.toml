@@ -16,6 +16,6 @@ diagnostics = 300
 # devices = ["/sys/devices/virtual/input/input231"]
 
 [auth]
-# systemd units authorized to access restricted interfaces (e.g. RGB Control, Controller Registration)
+# systemd units authorized to access restricted interfaces (e.g. RGB Control)
 # If this list is empty, validation is disabled.
 # authorized_units = ["openrgb.service"]

@@ -117,10 +117,10 @@ sudo portablectl detach contextd
 ## Security & Access Control
 
 The daemon implements a "dumb" but secure peer validation system:
-- **Unprivileged Public Sockets**: Basic context (active game, hardware list) is accessible via `/run/contextd/public/*.socket` to all users.
-- **Restricted Private Sockets**: Control operations (RGB lighting, controller registration) are restricted via `/run/contextd/private/*.socket`.
-- **Peer Validation**: Uses `SO_PEERCRED` to identify the systemd unit of the calling process.
-- **Granular Authorization**: Restricted methods are only allowed if the caller's systemd unit is listed in the `authorized_units` whitelist in `config.toml`.
+- **Unprivileged Public Sockets**: Basic context (active game, hardware list, controller registration) is accessible via `/run/contextd/public/contextd.socket` to all users.
+- **Restricted Private Sockets**: Operational control (RGB lighting) is restricted via `/run/contextd/private/contextd-rgb-control.socket`.
+- **Peer Validation**: Uses `SO_PEERCRED` to identify the systemd unit of the calling process for restricted operations.
+- **Granular Authorization**: Restricted methods (like updating system lighting) are only allowed if the caller's systemd unit is listed in the `authorized_units` whitelist in `config.toml`.
 
 ## Development
 

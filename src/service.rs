@@ -3,8 +3,6 @@
 //! Handles the primary Varlink interface for game detection, hardware inventory,
 //! and system diagnostics.
 
-use crate::auth::verify_unit_access;
-use crate::config::CONFIG;
 use crate::contextd::*;
 use crate::detectors::controllers::manager::ControllerManager;
 use crate::detectors::diagnostics::manager::DiagnosticsManager;
@@ -63,14 +61,6 @@ impl VarlinkInterface for ContextService {
         call: &mut dyn Call_RegisterController,
         controller: Controller,
     ) -> varlink::Result<()> {
-        if let Err(unit) = verify_unit_access(&CONFIG.auth.authorized_units) {
-            log::warn!(
-                "Unauthorized register_controller attempt from unit: {}",
-                unit
-            );
-            return call.reply_permission_denied(unit);
-        }
-
         let mut manager = self.controller_manager.write().unwrap();
         manager.register(controller);
         call.reply()
@@ -82,14 +72,6 @@ impl VarlinkInterface for ContextService {
         call: &mut dyn Call_UnregisterController,
         pid: i64,
     ) -> varlink::Result<()> {
-        if let Err(unit) = verify_unit_access(&CONFIG.auth.authorized_units) {
-            log::warn!(
-                "Unauthorized unregister_controller attempt from unit: {}",
-                unit
-            );
-            return call.reply_permission_denied(unit);
-        }
-
         let mut manager = self.controller_manager.write().unwrap();
         manager.unregister(pid);
         call.reply()
