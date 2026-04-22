@@ -3,6 +3,8 @@
 //! Handles the primary Varlink interface for game detection, hardware inventory,
 //! and system diagnostics.
 
+use crate::auth::get_current_peer;
+use crate::config::CONFIG;
 use crate::contextd::*;
 use crate::detectors::controllers::manager::ControllerManager;
 use crate::detectors::diagnostics::manager::DiagnosticsManager;
@@ -54,13 +56,35 @@ impl VarlinkInterface for ContextService {
         let mut manager = self.diagnostics_manager.write().unwrap();
         call.reply(manager.get_diagnostics())
     }
-
     /// Registers a new controller hint from an external application
     fn register_controller(
         &self,
         call: &mut dyn Call_RegisterController,
         controller: Controller,
     ) -> varlink::Result<()> {
+        // 0. Authorization Logic
+        if !CONFIG.auth.authorized_units.is_empty() {
+            let peer = get_current_peer();
+            let authorized = if let Some(p) = &peer
+                && let Some(unit) = &p.unit
+            {
+                CONFIG.auth.authorized_units.contains(unit)
+            } else {
+                false
+            };
+
+            if !authorized {
+                let unit = peer
+                    .and_then(|p| p.unit)
+                    .unwrap_or_else(|| "unknown".to_string());
+                log::warn!(
+                    "Unauthorized register_controller attempt from unit: {}",
+                    unit
+                );
+                return call.reply_permission_denied(unit);
+            }
+        }
+
         let mut manager = self.controller_manager.write().unwrap();
         manager.register(controller);
         call.reply()
@@ -72,6 +96,29 @@ impl VarlinkInterface for ContextService {
         call: &mut dyn Call_UnregisterController,
         pid: i64,
     ) -> varlink::Result<()> {
+        // 0. Authorization Logic
+        if !CONFIG.auth.authorized_units.is_empty() {
+            let peer = get_current_peer();
+            let authorized = if let Some(p) = &peer
+                && let Some(unit) = &p.unit
+            {
+                CONFIG.auth.authorized_units.contains(unit)
+            } else {
+                false
+            };
+
+            if !authorized {
+                let unit = peer
+                    .and_then(|p| p.unit)
+                    .unwrap_or_else(|| "unknown".to_string());
+                log::warn!(
+                    "Unauthorized unregister_controller attempt from unit: {}",
+                    unit
+                );
+                return call.reply_permission_denied(unit);
+            }
+        }
+
         let mut manager = self.controller_manager.write().unwrap();
         manager.unregister(pid);
         call.reply()

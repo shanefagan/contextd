@@ -22,6 +22,7 @@ sysinfo = "0.30"
 libc = "0.2"
 toml = "1.1.2"
 once_cell = "1.21.4"
+threadpool = "1.8.1"
 
 [build-dependencies]
 varlink_generator = "13.0"

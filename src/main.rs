@@ -8,6 +8,7 @@ mod contextd {
     #![allow(clippy::all, non_snake_case, non_camel_case_types, unused_imports)]
     include!(concat!(env!("OUT_DIR"), "/contextd.rs"));
 }
+mod auth;
 mod config;
 mod detectors;
 
@@ -15,9 +16,7 @@ mod service;
 
 mod rgb;
 
-use std::sync::{Arc, RwLock};
-use varlink::VarlinkService;
-
+use crate::auth::{PeerInfo, set_current_peer};
 use crate::detectors::controllers::manager::ControllerManager;
 use crate::detectors::diagnostics::manager::DiagnosticsManager;
 use crate::detectors::games::heroic::HeroicDetector;
@@ -27,6 +26,11 @@ use crate::detectors::games::steam::SteamDetector;
 use crate::detectors::hardware::manager::HardwareManager;
 use crate::detectors::hardware::udev::UdevDetector;
 use crate::service::ContextService;
+use std::io::BufReader;
+use std::os::unix::net::UnixListener;
+use std::sync::{Arc, RwLock};
+use threadpool::ThreadPool;
+use varlink::{ConnectionHandler, VarlinkService};
 
 /// Helper to fix socket permissions and ownership
 fn spawn_permission_fixer(path: String, mode: u32, use_rgb_group: bool) {
@@ -183,13 +187,9 @@ fn main() -> anyhow::Result<()> {
         log::info!("Observer listening on {}", obs_addr);
         log::info!("Control listening on {}", ctrl_addr);
 
-        let config = varlink::ListenConfig {
-            initial_worker_threads: 1,
-            max_worker_threads: 128,
-            idle_timeout: 0,
-            ..Default::default()
-        };
-        varlink::listen(control_service, ctrl_addr, &config)?;
+        // For simplicity, we only run one blocking listener in the main thread.
+        // In RGB mode, the Control interface is the primary listener.
+        run_server(control_service, ctrl_addr)?;
     } else {
         log::info!("Starting Context Daemon in Core Mode...");
         let _ = std::fs::create_dir_all("/run/contextd/public");
@@ -224,13 +224,42 @@ fn main() -> anyhow::Result<()> {
         );
         log::info!("Core listening on {}", address);
 
-        let config = varlink::ListenConfig {
-            initial_worker_threads: 1,
-            max_worker_threads: 128,
-            idle_timeout: 0,
-            ..Default::default()
-        };
-        varlink::listen(varlink_service, address, &config)?;
+        run_server(varlink_service, address)?;
+    }
+
+    Ok(())
+}
+
+/// A custom Varlink server implementation that captures peer credentials.
+fn run_server(service: VarlinkService, address: &str) -> anyhow::Result<()> {
+    let path = address.trim_start_matches("unix:");
+    let listener = UnixListener::bind(path)?;
+    let pool = ThreadPool::new(128);
+    let service = Arc::new(service);
+
+    log::debug!("Custom Varlink server listening on {}", path);
+
+    for stream in listener.incoming() {
+        match stream {
+            Ok(stream) => {
+                let service = Arc::clone(&service);
+                let peer_info = PeerInfo::from_stream(&stream);
+
+                pool.execute(move || {
+                    set_current_peer(peer_info);
+                    let mut reader = BufReader::new(&stream);
+                    let mut writer = &stream;
+
+                    if let Err(e) = service.handle(&mut reader, &mut writer, None) {
+                        log::debug!("Connection closed: {}", e);
+                    }
+                    set_current_peer(None);
+                });
+            }
+            Err(e) => {
+                log::error!("Error accepting connection: {}", e);
+            }
+        }
     }
 
     Ok(())

@@ -29,3 +29,4 @@ error InvalidMatrixSize(width: int, height: int, data_len: int)
 
 # A color component value is outside the valid range (0-255)
 error InvalidColorValue(component: string, value: int)
+error PermissionDenied(unit: string)

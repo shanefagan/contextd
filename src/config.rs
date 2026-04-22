@@ -16,6 +16,15 @@ pub struct Config {
     pub ttls: TtlConfig,
     #[serde(default)]
     pub blacklist: BlacklistConfig,
+    #[serde(default)]
+    pub auth: AuthConfig,
+}
+
+/// Authentication settings for peer validation
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct AuthConfig {
+    /// Systemd units authorized to access restricted interfaces (e.g. RGB Control)
+    pub authorized_units: Vec<String>,
 }
 
 /// TTL settings for various detectors (in seconds)

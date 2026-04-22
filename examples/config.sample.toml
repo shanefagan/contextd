@@ -14,3 +14,8 @@ diagnostics = 300
 # processes = ["Calculator"]
 # Hardware paths (udev paths) to ignore
 # devices = ["/sys/devices/virtual/input/input231"]
+
+[auth]
+# systemd units authorized to access restricted interfaces (e.g. RGB Control, Controller Registration)
+# If this list is empty, validation is disabled.
+# authorized_units = ["openrgb.service"]

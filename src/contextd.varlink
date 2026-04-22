@@ -78,3 +78,4 @@ method UnregisterController(pid: int) -> ()
 # Lists all active controller hints.
 method ListControllers() -> (controllers: []Controller)
 
+error PermissionDenied(unit: string)
