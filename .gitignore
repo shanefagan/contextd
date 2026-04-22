@@ -22,3 +22,7 @@
 .DS_Store
 **/*.rs.bk
 
+# Compiled Examples
+/examples/c/get_active_game
+/examples/rust/target/
+/examples/rust/Cargo.lock
