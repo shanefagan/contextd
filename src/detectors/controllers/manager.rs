@@ -17,7 +17,7 @@ impl ControllerManager {
     /// Creates a new ControllerManager
     pub fn new() -> Self {
         let mut sys = System::new();
-        sys.refresh_processes();
+        sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
         Self {
             controllers: HashMap::new(),
             sys,
@@ -48,7 +48,8 @@ impl ControllerManager {
 
     /// Removes controller hints for processes that are no longer running
     fn prune_stale(&mut self) {
-        self.sys.refresh_processes();
+        self.sys
+            .refresh_processes(sysinfo::ProcessesToUpdate::All, true);
         let initial_count = self.controllers.len();
 
         self.controllers.retain(|pid, controller| {
