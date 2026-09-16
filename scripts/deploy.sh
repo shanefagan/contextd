@@ -4,13 +4,13 @@ set -e
 
 NAME="contextd"
 INSTALL_DIR="/opt/${NAME}"
-SERVICE_FILE="packaging/contextd.service"
 
 echo "--- Building contextd (Release) ---"
 cargo build --release
 
 echo "--- Stopping existing service if running ---"
 sudo portablectl detach "${NAME}" --now || true
+sudo rm -f /etc/systemd/system/contextd.service /etc/systemd/system/contextd-rgb.service
 
 echo "--- Preparing Portable Root in ${INSTALL_DIR} ---"
 sudo mkdir -p "${INSTALL_DIR}/usr/bin"

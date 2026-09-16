@@ -1,0 +1,14 @@
+[package]
+name = "openrgb-contextd-bridge"
+version = "0.1.0"
+edition = "2024"
+authors = ["Shane Fagan <shane@performativenonsense.com>"]
+license = "MIT"
+
+[dependencies]
+contextd-client = { path = "../../contextd-client" }
+tokio = { version = "1.0", features = ["full"] }
+byteorder = "1.5"
+log = "0.4"
+env_logger = "0.11"
+anyhow = "1.0"

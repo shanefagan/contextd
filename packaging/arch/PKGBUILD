@@ -1,6 +1,6 @@
 # Maintainer: Shane Fagan <shane@performativenonsense.com>
 pkgname=contextd-git
-pkgver=0.1.0.r15.d837af8
+pkgver=0.1.0.r59.72d8b7b
 pkgrel=1
 pkgdesc="Lightweight game and hardware context daemon (Portable Hybrid)"
 arch=('x86_64')

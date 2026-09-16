@@ -1,0 +1,20 @@
+[Unit]
+Description=OpenRGB SDK to contextd RGB Bridge
+After=network.target contextd-rgb.service contextd.service
+Requires=contextd.service
+
+[Service]
+ExecStart=/usr/bin/openrgb-contextd-bridge
+DynamicUser=yes
+StateDirectory=contextd
+RuntimeDirectory=contextd
+BindPaths=/run/contextd
+BindReadOnlyPaths=/usr/lib /usr/lib64 /lib /lib64 /etc/ld.so.cache
+ProtectSystem=strict
+ProtectHome=read-only
+NoNewPrivileges=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+PrivateDevices=yes
+
+[Install]
+WantedBy=multi-user.target

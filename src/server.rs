@@ -11,7 +11,8 @@ use varlink::{ConnectionHandler, VarlinkService};
 pub fn run_server(service: VarlinkService, address: &str) -> anyhow::Result<()> {
     let path = address.trim_start_matches("unix:");
     let listener = UnixListener::bind(path)?;
-    let pool = ThreadPool::new(128);
+    // Use a small threadpool (4 threads) to prevent glibc malloc arena memory explosion (128 threads * 64MB arena = ~700MB RSS)
+    let pool = ThreadPool::new(4);
     let service = Arc::new(service);
 
     log::debug!("Custom Varlink server listening on {}", path);

@@ -2,6 +2,18 @@
 /contextd/
 /portable/
 /build/
+/dist/
+
+# Generated varlink bindings
+/src/contextd.rs
+/src/rgb/control.rs
+/src/rgb/observer.rs
+/contextd-client/src/contextd.rs
+/contextd-client/src/control.rs
+/contextd-client/src/observer.rs
+/contextd-client/src/contextd.varlink
+/contextd-client/src/control.varlink
+/contextd-client/src/observer.varlink
 
 # Arch Linux packaging artifacts
 /packaging/arch/src/

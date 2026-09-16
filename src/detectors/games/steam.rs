@@ -140,9 +140,8 @@ impl GameDetector for SteamDetector {
                     // Root can read any process's environ
                     if let Ok(environ) = fs::read(environ_path) {
                         for env_var in environ.split(|&b| b == 0) {
-                            let var_str = String::from_utf8_lossy(env_var);
-                            if var_str.starts_with("SteamAppId=") {
-                                if let Some(id) = var_str.split('=').nth(1)
+                            if env_var.starts_with(b"SteamAppId=") {
+                                if let Ok(id) = std::str::from_utf8(&env_var[11..])
                                     && let Some(game) = id_map.get(id)
                                 {
                                     let mut running_game = game.clone();
