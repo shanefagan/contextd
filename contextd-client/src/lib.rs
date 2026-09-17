@@ -3,9 +3,20 @@
 //! Provides type-safe Rust client interfaces to subscribe to ambient lighting vibes,
 //! control lighting contexts, or query active game and system state from `contextd`.
 
-pub mod contextd;
-pub mod control;
-pub mod observer;
+#[allow(clippy::all, non_snake_case, non_camel_case_types, unused_imports)]
+pub mod contextd {
+    include!(concat!(env!("OUT_DIR"), "/contextd.rs"));
+}
+
+#[allow(clippy::all, non_snake_case, non_camel_case_types, unused_imports)]
+pub mod control {
+    include!(concat!(env!("OUT_DIR"), "/control.rs"));
+}
+
+#[allow(clippy::all, non_snake_case, non_camel_case_types, unused_imports)]
+pub mod observer {
+    include!(concat!(env!("OUT_DIR"), "/observer.rs"));
+}
 
 pub use control::VarlinkClientInterface as ControlInterface;
 pub use observer::VarlinkClientInterface as ObserverInterface;
