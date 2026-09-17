@@ -131,7 +131,7 @@ dependencies = [
 
 [[package]]
 name = "contextd"
-version = "0.1.0"
+version = "0.9.1"
 dependencies = [
  "anyhow",
  "env_logger",
@@ -152,7 +152,7 @@ dependencies = [
 
 [[package]]
 name = "contextd-client"
-version = "0.1.0"
+version = "0.9.1"
 dependencies = [
  "log",
  "serde",
@@ -572,7 +572,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "openrgb-contextd-bridge"
-version = "0.1.0"
+version = "0.9.1"
 dependencies = [
  "anyhow",
  "byteorder",

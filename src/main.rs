@@ -54,7 +54,10 @@ fn main() -> anyhow::Result<()> {
         .parse_default_env()
         .init();
 
-    log::info!("Starting Context Daemon (contextd) v0.1.0");
+    log::info!(
+        "Starting Context Daemon (contextd) v{}",
+        env!("CARGO_PKG_VERSION")
+    );
 
     // 2. Resource Initialization
     let controller_manager = Arc::new(RwLock::new(ControllerManager::new()));
@@ -88,7 +91,7 @@ fn main() -> anyhow::Result<()> {
         let observer_service = VarlinkService::new(
             "com.performativenonsense",
             "Context Daemon RGB Observer",
-            "0.1.0",
+            env!("CARGO_PKG_VERSION"),
             "https://github.com/shanefagan/contextd",
             vec![Box::new(DynamicInterface {
                 interface: obs_interface,
@@ -99,7 +102,7 @@ fn main() -> anyhow::Result<()> {
         let control_service = VarlinkService::new(
             "com.performativenonsense",
             "Context Daemon RGB Control",
-            "0.1.0",
+            env!("CARGO_PKG_VERSION"),
             "https://github.com/shanefagan/contextd",
             vec![Box::new(DynamicInterface {
                 interface: ctrl_interface,
@@ -151,7 +154,7 @@ fn main() -> anyhow::Result<()> {
         let varlink_service = VarlinkService::new(
             "com.performativenonsense",
             "Context Daemon",
-            "0.1.0",
+            env!("CARGO_PKG_VERSION"),
             "https://github.com/shanefagan/contextd",
             vec![Box::new(DynamicInterface {
                 interface,
