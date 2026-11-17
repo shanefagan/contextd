@@ -19,11 +19,11 @@ bash scripts/install-hooks.sh
 This ensures your PRs are clean and reduces CI failures.
 
 ### 🛠️ Pull Requests
-1. **Fork the repo** and create your branch from `main`.
+1. **Fork the repo** and create your branch from `master`.
 2. **Setup**: Run `./scripts/install-hooks.sh` to install local git hooks that automatically verify formatting and linting before commits.
 3. **Rust Style**: Ensure your code is formatted with `cargo fmt`.
-4. **Varlink Changes**: If you modify the `.varlink` interface, ensure you run the generator to update the Rust bindings.
-5. **Testing**: Run `cargo test` before submitting.
+4. **Varlink Changes**: Interfaces live in `contextd-client/interfaces/`. Bindings are regenerated automatically by `contextd-client/build.rs`, and the daemon uses the same generated code. Prefer adding optional fields and new methods over changing existing ones.
+5. **Testing**: Run `cargo test --workspace` before submitting. `tests/daemon.rs` runs the real daemon on temporary sockets; add a case there for behaviour a client can observe.
 6. **Documentation**: Update `README.md` or files in `docs/` if you add new features.
 
 ## ⚖️ License

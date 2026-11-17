@@ -5,7 +5,7 @@ SOCKET="unix:/run/contextd/public/contextd.socket"
 INTERFACE="com.performativenonsense.contextd"
 
 if ! command -v varlinkctl &> /dev/null; then
-    echo "Error: varlinkctl is not installed. Please install it (usually available in the 'varlink' package)."
+    echo "Error: varlinkctl is not installed. It ships with systemd 255 and later."
     exit 1
 fi
 
@@ -14,7 +14,7 @@ echo "------------------------------------------"
 
 # Use jq if available for pretty printing, otherwise just output the raw JSON
 if command -v jq &> /dev/null; then
-    varlinkctl call "$SOCKET/$INTERFACE.GetDiagnostics" | jq .
+    varlinkctl call "$SOCKET" "$INTERFACE.GetDiagnostics" '{}' | jq .
 else
-    varlinkctl call "$SOCKET/$INTERFACE.GetDiagnostics"
+    varlinkctl call "$SOCKET" "$INTERFACE.GetDiagnostics" '{}'
 fi

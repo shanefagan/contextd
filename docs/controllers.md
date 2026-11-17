@@ -15,26 +15,39 @@ In the Linux desktop ecosystem, multiple tools often want to manage the same har
 
 ### Registering a Hint
 An app registers a `Controller` object via `RegisterController`.
-- **PID**: The process ID of the controller app (used for auto-pruning if the app crashes).
+- **PID**: The process that controls the hardware. It must be the caller itself or one of its ancestors owned by the same user (so a script can register its own PID and then call `varlinkctl`). Pass `0` to mean "the calling process"; sandboxed apps (Flatpak) must do this, because their own PID differs from the one contextd sees. The hint disappears automatically when that process exits.
 - **Capabilities**: What the app is doing (e.g., "Lighting", "Macros", "DPI").
-- **Interested Devices**: A list of udev paths the app is managing.
+- **Interested Devices**: Device nodes the app is managing, such as `/dev/hidraw3`. Any node of a device matches (see `Device.paths`).
+
+Calling `RegisterController` again for the same PID updates the hint.
+
+### Removing a Hint
+`UnregisterController(pid)` removes a hint. Only the user that owns the hinted process, or root, can do this. Removing a hint that does not exist succeeds.
 
 ### Viewing Hints
-When calling `ListDevices` or `ListRGBDevices`, the returned `Device` objects include a `controllers` field containing all registered hints for that specific path.
+When calling `ListDevices` or `ListRGBDevices`, each `Device` includes a `controllers` field with every hint that names one of its `paths`.
 
 ```json
 {
-  "name": "Logitech G502",
+  "name": "G502 HERO Gaming Mouse",
   "path": "/dev/input/event2",
+  "paths": ["/dev/input/event2", "/dev/input/event3", "/dev/hidraw3"],
   "controllers": [
     {
       "name": "Solaar",
       "capabilities": ["DPI", "Battery"],
-      "pid": 1234
+      "pid": 1234,
+      "interested_devices": ["/dev/hidraw3"]
     }
   ]
 }
 ```
 
 ## 🔒 Security
-Since this method exposes which processes are running and what they are doing, `RegisterController` is a **restricted method**. The calling process must have its systemd unit whitelisted in `config.toml`.
+Hints are public: anyone can list them. They need no whitelist, but contextd checks the caller's credentials (`SO_PEERCRED`) so one user cannot register hints for, overwrite, or remove another user's processes. Field lengths and the number of hints per user are capped. Errors:
+
+| Error | Meaning |
+| :--- | :--- |
+| `InvalidController(reason)` | PID is not the caller or an ancestor, the process has exited, or a field is too long |
+| `NotOwner(pid)` | The hint belongs to another user |
+| `LimitExceeded(limit, max)` | Too many hints for this user, or in total |

@@ -22,7 +22,7 @@ flatpak override <app-id> --filesystem=/run/contextd/public:ro
 ```
 
 ### 2. For the Private Socket (RGB Control)
-The RGB Control socket lives in `/run/contextd/private`. Only authorized lighting controllers should have access to this.
+The RGB Control socket lives in `/run/contextd/private`. It is mode 0660, group `contextd-rgb`: the filesystem override only makes it visible, and the user running the app must also be in that group.
 
 **Via Command Line:**
 ```bash
@@ -40,4 +40,8 @@ flatpak override <app-id> --filesystem=/run/contextd/private:rw
 
 Since `contextd` uses Varlink over Unix sockets, the security is handled at the filesystem level. By granting access to the `/run/contextd` subdirectories, the Flatpak application is able to see and connect to the sockets just like a native host application.
 
-The daemon itself uses file permissions on the sockets (typically `0666` or restricted by group) to further manage access, but the Flatpak sandbox requires the explicit filesystem mount to even see the socket nodes.
+The daemon itself uses file permissions on the sockets (`0666` for the public ones, `0660` with group `contextd-rgb` for control) to further manage access, but the Flatpak sandbox requires the explicit filesystem mount to even see the socket nodes.
+
+## Controller hints from a sandbox
+
+A sandboxed app sees its own PID namespace, so its PID is not the one contextd sees. Register hints with `"pid": 0`, which tells contextd to use the caller's real PID.

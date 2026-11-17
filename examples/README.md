@@ -8,17 +8,17 @@ Because `contextd` uses [Varlink](https://varlink.org) over standard Unix socket
 
 ### 1. Python
 Python is a great choice for scripting against `contextd` because it has built-in support for Unix sockets and JSON, requiring zero external dependencies.
-- **`python/get_active_game.py`**: Queries the core daemon for the currently foregrounded game.
+- **`python/get_active_game.py`**: Queries the core daemon for the most recently launched running game.
 - **`python/subscribe_rgb.py`**: Subscribes to real-time ambient lighting updates from the RGB observer socket.
 - **`python/register_controller.py`**: Demonstrates how to register a hardware controller "hint" to coordinate with other apps.
 
 ### 2. Shell
-For simple queries in bash scripts, the `varlinkctl` tool (usually installed alongside varlink) allows one-line interactions.
+For simple queries in bash scripts, `varlinkctl` (part of systemd 255 and later) allows one-line interactions.
 - **`shell/get_diagnostics.sh`**: Uses `varlinkctl` to query system diagnostics.
 - **`shell/register_controller.sh`**: Registers a temporary hint using a bash script.
 
 ### 3. Rust
-While the `contextd` daemon itself is written in Rust and uses the `varlink` crate, you can also interact with it using nothing but the standard library and `serde_json`.
+The easiest route is the `contextd-client` crate in this repository (`CoreClient`, `ObserverClient`, `ControlClient`). These examples show that you can also do it with nothing but the standard library and `serde_json`.
 - **`rust/src/main.rs`**: A standard Cargo project showing how to connect to the Unix socket and parse a JSON response.
 - **`rust/src/bin/register_controller.rs`**: Shows how to register a controller hint using raw Unix sockets and Serde.
   *Run it with:* `cd rust && cargo run --bin register_controller`
@@ -40,10 +40,7 @@ Remember the daemon exposes three interfaces:
 
 ## Security Note
 
-Methods like `RegisterController` and `SetLightingContext` are restricted. To run examples that use these methods (like `register_controller.py`), you must ensure:
-1. You are connecting to the **Private** socket path if applicable.
-2. The systemd unit running your script/app is listed in the `authorized_units` whitelist in `/etc/contextd/config.toml`.
-
-If you are running an example script manually in a terminal, it will likely be identified by its `session-X.scope`. You can add that scope to the whitelist for testing, or run the script as a transient service with `systemd-run`.
+- **`RegisterController`** works from any process, but the hint's `pid` must be the calling process or one of its ancestors (the examples use their own PID; `0` also means "me"). Only the same user can remove it.
+- **`SetLightingContext`** goes to the control socket, which only root and members of the `contextd-rgb` group can open (`sudo usermod -aG contextd-rgb $USER`, then log in again). If the administrator set `auth.authorized_units`, only those system services (and root) may write.
 
 > **Note:** The daemon must be running for these examples to work.

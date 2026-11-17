@@ -49,7 +49,7 @@ def main():
             print(f"  Source: {game.get('source')}")
             print(f"  PID:    {game.get('pid')}")
         else:
-            print("No active game is currently foregrounded.")
+            print("No game is currently running.")
 
 if __name__ == "__main__":
     main()
