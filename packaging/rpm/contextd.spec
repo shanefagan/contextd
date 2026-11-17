@@ -1,3 +1,6 @@
+# Ship one package; newer rpmbuild otherwise also emits a -debuginfo package.
+%global debug_package %{nil}
+
 Name:            contextd
 Version:         0.10.0
 Release:         1%{?dist}
