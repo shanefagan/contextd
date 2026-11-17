@@ -68,8 +68,9 @@ classDiagram
     *   **Diagnostics**: Gathers system specs (CPU, GPU, RAM) and library support.
 2.  **Managers**: Handle caching, TTLs, and data aggregation for each category.
 3.  **Varlink Service**: The primary communication layer, exposing typed JSON-RPC over Unix sockets. Interface definitions live in `contextd-client/interfaces/`; the daemon and the client crate use the same generated code.
-4.  **Server**: One thread per connection, with per-user connection caps, message size limits and timeouts. Sockets come from systemd socket activation, or are bound directly in development.
-5.  **Security Layer**: Identifies the caller with `SO_PEERCRED` and enforces access control (see `security.md`).
+4.  **Focus helper (`contextd-focus`)**: A per-user session service that watches the compositor or X server and reports the focused window's process with `ReportFocus`. The daemon itself never touches the desktop.
+5.  **Server**: One thread per connection, with per-user connection caps, message size limits and timeouts. Sockets come from systemd socket activation, or are bound directly in development.
+6.  **Security Layer**: Identifies the caller with `SO_PEERCRED` and enforces access control (see `security.md`).
 
 ---
 

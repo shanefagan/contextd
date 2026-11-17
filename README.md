@@ -22,6 +22,8 @@ contextd/
 ├── src/                            # contextd Core System & RGB Daemon
 ├── contextd-client/                # Official Rust Client Library (contextd-client)
 │   └── interfaces/                 # Varlink interface definitions (source of truth)
+├── helpers/
+│   └── contextd-focus/             # Session helper: reports the focused window
 └── bridges/
     └── openrgb-contextd-bridge/    # Optional OpenRGB SDK TCP Bridge (Port 6742)
 ```
@@ -30,12 +32,16 @@ contextd/
 
 - **`contextd`**: Core daemon serving game detection, hardware inventory, and RGB observer/control Varlink sockets.
 - **`contextd-client`**: Official Rust client crate providing type-safe interfaces (`CoreClient`, `ObserverClient`, `ControlClient`) with automatic reconnection. The daemon is built on the same generated types.
+- **`contextd-focus`**: Runs in each user's graphical session (systemd user service) and tells `contextd` which process owns the focused window, so `GetActiveGame` returns the game you are actually looking at. Supports X11/XWayland (KDE, GNOME, any X11 desktop), Hyprland and Sway.
 - **`openrgb-contextd-bridge`**: Optional TCP server bridge on port 6742 that accepts OpenRGB SDK RGB updates and forwards them to `contextd`.
 
 ## Features
 
-- **Wide Launcher Support**: Detects installed and running games from Steam (Native/Flatpak), Heroic Games Launcher (Epic, GOG, Amazon), and Lutris.
-- **Hardware-Aware**: Groups udev nodes by physical device (so two identical controllers stay two devices) and lists every node of each device.
+- **Wide Launcher Support**: Detects installed and running games from Steam (Native/Flatpak, including non-Steam shortcuts), Heroic Games Launcher (Epic, GOG, Amazon), Lutris, Bottles and itch.io.
+- **Focus-Aware**: With `contextd-focus` running, the active game is the one whose window has focus, not just the last one launched.
+- **Push Updates**: `SubscribeRunningGames` and `SubscribeDevices` stream changes as they happen; nothing runs in the background unless someone is subscribed.
+- **Hardware-Aware**: Groups udev nodes by physical device (so two identical controllers stay two devices) and lists every node of each device. Devices that OpenRGB supports (from its installed udev rules) are marked `rgb`.
+- **Compact Lighting Frames**: The lighting matrix can travel as base64 RGBA (`packed_matrix`), about 6× smaller than the JSON array form.
 - **System Diagnostics**: Reports RAM, CPU, GPU specs, kernel version, and verifies Vulkan and OpenGL libraries.
 - **Modern IPC**: Uses [Varlink](https://varlink.org/) over Unix sockets (`/run/contextd/public/contextd.socket`, `/run/contextd/public/contextd-rgb-observer.socket` and `/run/contextd/private/contextd-rgb-control.socket`).
 - **systemd Native**: Distributed as a **systemd portable service** (`portablectl`) with socket activation: the daemons start when a client first connects.
@@ -54,6 +60,15 @@ To let a user change lighting:
 sudo usermod -aG contextd-rgb "$USER"   # log in again afterwards
 ```
 
+### Focus Helper
+Packages enable `contextd-focus` for every user's graphical session; it starts at your next login. To start it now:
+```bash
+systemctl --user start contextd-focus.service
+```
+KDE and GNOME pass `DISPLAY` to user services. On Sway or Hyprland, export the session variables once at startup, e.g. `exec dbus-update-activation-environment --systemd --all` in your compositor config. Check what it sees with `contextd-focus --once`.
+
+On KDE and GNOME Wayland the helper sees XWayland windows, which is where Proton and most native games run; native Wayland windows count as "nothing focused".
+
 ### Optional OpenRGB SDK Bridge Service
 To start the optional OpenRGB SDK bridge daemon on TCP port 6742 (127.0.0.1 only):
 ```bash
@@ -64,11 +79,15 @@ OpenRGB's own SDK server uses the same port; set `OPENRGB_SERVER_PORT` in the un
 ### Interaction
 Use the `contextctl` helper to query the daemon:
 ```bash
-# Get the most recently launched running game
+# Get the focused game (or the most recently launched one)
 ./scripts/contextctl.sh active
 
-# List all running games
+# List all running games (focused one first)
 ./scripts/contextctl.sh running
+
+# Stream running games / devices as they change
+./scripts/contextctl.sh watch-games
+./scripts/contextctl.sh watch-devices
 
 # List installed games
 ./scripts/contextctl.sh list-games
@@ -76,7 +95,7 @@ Use the `contextctl` helper to query the daemon:
 # List connected gaming peripherals
 ./scripts/contextctl.sh list-devices
 
-# List RGB controllers, fans, and lights
+# List devices with RGB lighting (as known to OpenRGB's udev rules)
 ./scripts/contextctl.sh list-rgb
 
 # Get system diagnostics

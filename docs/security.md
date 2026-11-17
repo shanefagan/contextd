@@ -8,6 +8,7 @@
 | :--- | :--- | :--- |
 | Read games, devices, diagnostics, hints | `public/contextd.socket` (0666) | Nothing: public |
 | Register / remove a controller hint | `public/contextd.socket` | Caller credentials (`SO_PEERCRED`) |
+| Report window focus | `public/contextd.socket` | Caller credentials: only the caller's own processes |
 | Read / subscribe to lighting | `public/contextd-rgb-observer.socket` (0666) | Nothing: public |
 | Change lighting | `private/contextd-rgb-control.socket` (0660, `contextd-rgb`) | File permissions, then optional `auth.authorized_units` |
 
@@ -51,6 +52,14 @@ Hints are self-attested but bound to the caller:
 ### Configuration
 
 `/etc/contextd/config.toml` is optional. If it exists and cannot be parsed, or contains an unknown key, contextd refuses to start: falling back to defaults would also silently drop any restrictions it configured.
+
+### Focus reports
+
+`contextd-focus` runs as each user's own systemd user service, with no privileges. `ReportFocus` only accepts processes owned by the caller's UID (root may report for anyone, on behalf of that user), and keeps one report per user. A report expires as soon as the reporting process exits, so a stale or crashed helper cannot pin focus. Callers see their own session's focus; services without a session see the most recent report.
+
+### Game and device detection inputs
+
+Launcher files (Steam manifests and shortcuts, Lutris, Heroic, Bottles and itch.io data) and OpenRGB's udev rules are untrusted input. They are parsed with size-bounded, failure-tolerant parsers: a malformed file yields no games or IDs rather than an error, and SQLite databases are opened read-only.
 
 ## 🛡️ Resource limits
 

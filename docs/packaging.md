@@ -23,6 +23,7 @@ Some files live on the host, outside the image:
 | `/usr/lib/sysusers.d/contextd.conf` | Creates the `contextd-rgb` group that owns the control socket. Run `systemd-sysusers` before attaching. |
 | `/usr/bin/openrgb-contextd-bridge` + its `.service` | Optional OpenRGB SDK bridge (not enabled by default) |
 | `/usr/bin/contextctl` | CLI helper |
+| `/usr/bin/contextd-focus` + `/usr/lib/systemd/user/contextd-focus.service` | Focus helper for graphical sessions; packages enable it globally (`systemctl --global enable`), so it starts at each user's next login |
 
 ### 2. Native Packages
 The `.deb`, `.rpm` and Arch `PKGBUILD` install the same image and host files, and attach the image in their post-install scripts. All of them are assembled by `scripts/package-portable.sh`.
