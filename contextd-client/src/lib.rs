@@ -32,6 +32,8 @@ pub use contextd::{Controller, Device, Diagnostics, Game, Gpu};
 pub use control::VarlinkClientInterface as ControlInterface;
 pub use observer::VarlinkClientInterface as ObserverInterface;
 
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD as BASE64;
 use log::{info, warn};
 use std::ops::ControlFlow;
 use std::sync::{Arc, Mutex, RwLock};
@@ -122,6 +124,38 @@ impl From<observer::Matrix> for ColorMatrix {
     }
 }
 
+impl ColorMatrix {
+    /// The compact wire form: row-major RGBA bytes, base64-encoded.
+    pub fn to_packed(&self) -> control::PackedMatrix {
+        let bytes: Vec<u8> = self
+            .data
+            .iter()
+            .flat_map(|c| [c.r, c.g, c.b, c.a])
+            .collect();
+        control::PackedMatrix {
+            width: self.width as i64,
+            height: self.height as i64,
+            rgba: BASE64.encode(bytes),
+        }
+    }
+
+    /// Decodes the compact wire form; `None` if it is malformed.
+    pub fn from_packed(p: &observer::PackedMatrix) -> Option<Self> {
+        let bytes = BASE64.decode(p.rgba.as_bytes()).ok()?;
+        if bytes.len() % 4 != 0 {
+            return None;
+        }
+        Some(Self {
+            width: p.width.max(0) as usize,
+            height: p.height.max(0) as usize,
+            data: bytes
+                .chunks_exact(4)
+                .map(|c| RgbaColor::new(c[0], c[1], c[2], c[3]))
+                .collect(),
+        })
+    }
+}
+
 impl From<ColorMatrix> for control::Matrix {
     fn from(m: ColorMatrix) -> Self {
         control::Matrix {
@@ -140,10 +174,20 @@ pub struct LightingVibe {
 }
 
 impl LightingVibe {
-    fn new(main_color: observer::Color, matrix: Option<observer::Matrix>) -> Self {
+    /// Builds from a reply, preferring the packed matrix (current daemons
+    /// send it when asked) over the expanded one (older daemons).
+    fn new(
+        main_color: observer::Color,
+        matrix: Option<observer::Matrix>,
+        packed: Option<observer::PackedMatrix>,
+    ) -> Self {
+        let matrix = packed
+            .as_ref()
+            .and_then(ColorMatrix::from_packed)
+            .or_else(|| matrix.map(ColorMatrix::from));
         Self {
             main_color: main_color.into(),
-            matrix: matrix.map(ColorMatrix::from),
+            matrix,
         }
     }
 }
@@ -273,6 +317,71 @@ impl CoreClient {
             .call(|c| c.register_controller(controller.clone()).call().map(|_| ()))
     }
 
+    /// Streams the running-games list to `on_change`: once straight away
+    /// and again whenever it changes. Reconnects if the daemon restarts;
+    /// returns when the callback returns [`ControlFlow::Break`].
+    pub fn subscribe_running_games<F>(&self, mut on_change: F) -> Result<(), ClientError>
+    where
+        F: FnMut(Vec<Game>) -> ControlFlow<()>,
+    {
+        self.stream(|c| {
+            let mut call = c.subscribe_running_games();
+            for reply in call.more()? {
+                if on_change(reply?.games).is_break() {
+                    return Ok(ControlFlow::Break(()));
+                }
+            }
+            Ok(ControlFlow::Continue(()))
+        })
+    }
+
+    /// Streams the device list to `on_change`: once straight away and again
+    /// whenever a device or controller hint changes. Reconnects if the
+    /// daemon restarts; returns when the callback returns
+    /// [`ControlFlow::Break`].
+    pub fn subscribe_devices<F>(&self, mut on_change: F) -> Result<(), ClientError>
+    where
+        F: FnMut(Vec<Device>) -> ControlFlow<()>,
+    {
+        self.stream(|c| {
+            let mut call = c.subscribe_devices();
+            for reply in call.more()? {
+                if on_change(reply?.devices).is_break() {
+                    return Ok(ControlFlow::Break(()));
+                }
+            }
+            Ok(ControlFlow::Continue(()))
+        })
+    }
+
+    /// Runs `body` on a dedicated connection, reconnecting after errors or
+    /// when the daemon ends the stream, until `body` breaks.
+    fn stream(
+        &self,
+        mut body: impl FnMut(&mut contextd::VarlinkClient) -> Result<ControlFlow<()>, contextd::Error>,
+    ) -> Result<(), ClientError> {
+        loop {
+            match varlink::Connection::with_address(&self.conn.address) {
+                Ok(conn) => {
+                    let mut client = contextd::VarlinkClient::new(conn);
+                    match body(&mut client) {
+                        Ok(ControlFlow::Break(())) => return Ok(()),
+                        Ok(ControlFlow::Continue(())) => {}
+                        Err(e) => warn!("contextd subscription ended: {}", e),
+                    }
+                }
+                Err(e) => warn!("Could not connect to contextd: {}", e),
+            }
+            thread::sleep(Duration::from_secs(3));
+        }
+    }
+
+    /// Reports the process that owns the focused window in this session
+    /// (`None` when nothing is focused). Used by session helpers.
+    pub fn report_focus(&self, pid: Option<i64>) -> Result<(), ClientError> {
+        self.conn.call(|c| c.report_focus(pid).call().map(|_| ()))
+    }
+
     pub fn unregister_controller(&self, pid: i64) -> Result<(), ClientError> {
         self.conn
             .call(|c| c.unregister_controller(pid).call().map(|_| ()))
@@ -308,8 +417,12 @@ impl ObserverClient {
     pub fn get(&self) -> Result<LightingVibe, ClientError> {
         let conn = varlink::Connection::with_address(&self.address())?;
         let mut client = observer::VarlinkClient::new(conn);
-        let reply = client.get_lighting_context().call()?;
-        Ok(LightingVibe::new(reply.main_color, reply.matrix))
+        let reply = client.get_lighting_context(Some(true)).call()?;
+        Ok(LightingVibe::new(
+            reply.main_color,
+            reply.matrix,
+            reply.packed_matrix,
+        ))
     }
 
     /// Streams lighting updates to `on_vibe`, reconnecting automatically if
@@ -325,13 +438,17 @@ impl ObserverClient {
             match varlink::Connection::with_address(&address) {
                 Ok(conn) => {
                     let mut client = observer::VarlinkClient::new(conn);
-                    match client.subscribe_lighting_context().more() {
+                    match client.subscribe_lighting_context(Some(true)).more() {
                         Ok(stream) => {
                             info!("Subscribed to contextd lighting updates.");
                             for reply in stream {
                                 match reply {
                                     Ok(evt) => {
-                                        let vibe = LightingVibe::new(evt.main_color, evt.matrix);
+                                        let vibe = LightingVibe::new(
+                                            evt.main_color,
+                                            evt.matrix,
+                                            evt.packed_matrix,
+                                        );
                                         if on_vibe(vibe).is_break() {
                                             return Ok(());
                                         }
@@ -419,9 +536,9 @@ impl ControlClient {
         clear_matrix: Option<bool>,
     ) -> Result<(), ClientError> {
         let main_color = main_color.map(control::Color::from);
-        let matrix = matrix.map(control::Matrix::from);
+        let packed = matrix.as_ref().map(ColorMatrix::to_packed);
         self.conn.call(|c| {
-            c.set_lighting_context(main_color.clone(), matrix.clone(), clear_matrix)
+            c.set_lighting_context(main_color.clone(), None, packed.clone(), clear_matrix)
                 .call()
                 .map(|_| ())
         })
@@ -448,6 +565,23 @@ mod tests {
             a: 255,
         });
         assert_eq!(c, RgbaColor::new(0, 255, 7, 255));
+    }
+
+    #[test]
+    fn packed_round_trip() {
+        let m = ColorMatrix {
+            width: 2,
+            height: 1,
+            data: vec![RgbaColor::new(1, 2, 3, 4), RgbaColor::new(5, 6, 7, 8)],
+        };
+        let p = m.to_packed();
+        let back = ColorMatrix::from_packed(&observer::PackedMatrix {
+            width: p.width,
+            height: p.height,
+            rgba: p.rgba,
+        })
+        .unwrap();
+        assert_eq!(back, m);
     }
 
     #[test]

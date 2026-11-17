@@ -1,11 +1,19 @@
 use super::udev::UdevDetector;
 use super::{Device, HardwareDetector};
 use crate::config;
+use crate::watch;
 use std::time::{Duration, Instant};
+
+struct Cached {
+    devices: Vec<Device>,
+    at: Instant,
+    /// udev generation the scan saw; a newer one means it is stale.
+    udev_generation: u64,
+}
 
 pub struct HardwareManager {
     detectors: Vec<Box<dyn HardwareDetector>>,
-    device_cache: Option<(Vec<Device>, Instant)>,
+    device_cache: Option<Cached>,
 }
 
 impl HardwareManager {
@@ -17,11 +25,18 @@ impl HardwareManager {
     }
 
     pub fn list_all_devices(&mut self) -> Vec<Device> {
-        let ttl = Duration::from_secs(config::get().ttls.hardware);
-        if let Some((cache, ts)) = &self.device_cache
-            && ts.elapsed() < ttl
+        self.list_all_devices_max_age(Duration::from_secs(config::get().ttls.hardware))
+    }
+
+    /// Devices from a scan at most `max_age` old, and newer than the last
+    /// change the udev watcher saw.
+    pub fn list_all_devices_max_age(&mut self, max_age: Duration) -> Vec<Device> {
+        let generation = watch::UDEV.current();
+        if let Some(c) = &self.device_cache
+            && c.at.elapsed() < max_age
+            && c.udev_generation == generation
         {
-            return cache.clone();
+            return c.devices.clone();
         }
 
         let blacklist = &config::get().blacklist.devices;
@@ -32,16 +47,20 @@ impl HardwareManager {
             .filter(|d| !d.paths.iter().any(|p| blacklist.contains(p)))
             .collect();
 
-        self.device_cache = Some((devices.clone(), Instant::now()));
+        self.device_cache = Some(Cached {
+            devices: devices.clone(),
+            at: Instant::now(),
+            udev_generation: generation,
+        });
         devices
     }
 
-    /// Devices with a raw HID node, which is how almost all RGB peripherals
-    /// are driven. contextd cannot tell which of them actually have LEDs.
+    /// Devices known to have RGB lighting (class `rgb`): listed in
+    /// OpenRGB's udev rules or tagged `ID_CONTEXTD_RGB=1`.
     pub fn list_rgb_devices(&mut self) -> Vec<Device> {
         self.list_all_devices()
             .into_iter()
-            .filter(|d| d.classes.iter().any(|c| c == "hid"))
+            .filter(|d| d.classes.iter().any(|c| c == "rgb"))
             .collect()
     }
 }
@@ -100,10 +119,10 @@ mod tests {
     }
 
     #[test]
-    fn rgb_list_is_hid_devices_only() {
+    fn rgb_list_is_rgb_devices_only() {
         let mut mgr = manager(vec![
-            dev("mouse", &["mouse"]),
-            dev("kbd", &["keyboard", "hid"]),
+            dev("mouse", &["mouse", "hid"]),
+            dev("kbd", &["keyboard", "hid", "rgb"]),
         ]);
         let rgb = mgr.list_rgb_devices();
         assert_eq!(rgb.len(), 1);

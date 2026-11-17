@@ -1,5 +1,5 @@
 use super::vdf::{self, Value};
-use super::{Game, GameDetector, GameRef, ProcessEnv, home_dirs};
+use super::{Game, GameDetector, GameRef, Installed, ProcessEnv, home_dirs};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -27,23 +27,34 @@ impl SteamDetector {
         Self
     }
 
-    fn find_steam_libraries(&self) -> Vec<PathBuf> {
-        let mut all_libraries = Vec::new();
+    /// Steam installation roots (native, legacy symlink and Flatpak).
+    fn steam_roots(&self) -> Vec<PathBuf> {
+        let mut roots: Vec<PathBuf> = Vec::new();
         for user_home in home_dirs() {
-            let roots = [
+            for root in [
                 user_home.join(".local/share/Steam"),
                 user_home.join(".steam/steam"),
-                user_home.join(".var/app/com.valvesoftware.Steam/.local/share/Steam"), // Flatpak
-            ];
-            for root in roots {
+                user_home.join(".var/app/com.valvesoftware.Steam/.local/share/Steam"),
+            ] {
                 if root.join("steamapps").exists() {
-                    for lib in self.get_library_folders(&root) {
-                        // .steam/steam is usually a symlink to the same root.
-                        let lib = fs::canonicalize(&lib).unwrap_or(lib);
-                        if !all_libraries.contains(&lib) {
-                            all_libraries.push(lib);
-                        }
+                    // .steam/steam is usually a symlink to the same root.
+                    let root = fs::canonicalize(&root).unwrap_or(root);
+                    if !roots.contains(&root) {
+                        roots.push(root);
                     }
+                }
+            }
+        }
+        roots
+    }
+
+    fn find_steam_libraries(&self, roots: &[PathBuf]) -> Vec<PathBuf> {
+        let mut all_libraries = Vec::new();
+        for root in roots {
+            for lib in self.get_library_folders(root) {
+                let lib = fs::canonicalize(&lib).unwrap_or(lib);
+                if !all_libraries.contains(&lib) {
+                    all_libraries.push(lib);
                 }
             }
         }
@@ -86,8 +97,83 @@ impl SteamDetector {
             id: Some(id),
             source: "Steam".to_string(),
             pid: None,
+            focused: None,
         })
     }
+
+    /// Non-Steam games added to the library, from every Steam user's
+    /// `userdata/<id>/config/shortcuts.vdf`.
+    fn shortcuts(&self, roots: &[PathBuf]) -> Vec<Game> {
+        let mut games = Vec::new();
+        for root in roots {
+            let Ok(users) = fs::read_dir(root.join("userdata")) else {
+                continue;
+            };
+            for user in users.flatten() {
+                let path = user.path().join("config/shortcuts.vdf");
+                if let Ok(data) = fs::read(&path) {
+                    games.extend(parse_shortcuts(&data));
+                }
+            }
+        }
+        games
+    }
+}
+
+/// Games listed in a binary `shortcuts.vdf`. The id is the shortcut's
+/// 32-bit app ID as an unsigned number, which is how Steam names its
+/// artwork and Proton prefix for it.
+pub fn parse_shortcuts(data: &[u8]) -> Vec<Game> {
+    let Some(doc) = vdf::parse_binary(data) else {
+        return Vec::new();
+    };
+    let Some(list) = doc.get("shortcuts") else {
+        return Vec::new();
+    };
+    list.children()
+        .iter()
+        .filter_map(|(_, entry)| {
+            let app_id = entry.get("appid")?.as_int()? as u32;
+            let name = entry.get("appname")?.as_str()?.trim().to_string();
+            (!name.is_empty()).then(|| Game {
+                name,
+                id: Some(app_id.to_string()),
+                source: "Steam (Shortcut)".to_string(),
+                pid: None,
+                focused: None,
+            })
+        })
+        .collect()
+}
+
+/// The game a Steam-launched process belongs to.
+///
+/// Steam games carry `SteamAppId`. Non-Steam shortcuts run with
+/// `SteamAppId=0`; their 32-bit app ID is the top half of the 64-bit
+/// `SteamGameId` (`app_id << 32 | 0x02000000`), and Proton shortcuts also
+/// name their prefix after it (`.../compatdata/<app_id>`).
+fn identify_steam(env: &ProcessEnv) -> Option<String> {
+    if let Some(id) = env.get("SteamAppId").filter(|id| id.as_str() != "0") {
+        return Some(id.clone());
+    }
+    if let Some(game_id) = env.get("SteamGameId").and_then(|g| g.parse::<u64>().ok()) {
+        if game_id > u32::MAX as u64 {
+            return Some((game_id >> 32).to_string());
+        }
+        if game_id != 0 {
+            return Some(game_id.to_string());
+        }
+    }
+    env.get("STEAM_COMPAT_DATA_PATH")
+        .and_then(|p| {
+            Path::new(p.trim_end_matches('/'))
+                .file_name()?
+                .to_str()?
+                .parse::<u32>()
+                .ok()
+        })
+        .filter(|id| *id != 0)
+        .map(|id| id.to_string())
 }
 
 impl GameDetector for SteamDetector {
@@ -95,9 +181,10 @@ impl GameDetector for SteamDetector {
         "Steam"
     }
 
-    fn list_installed(&self) -> Vec<Game> {
+    fn list_installed(&self) -> Vec<Installed> {
+        let roots = self.steam_roots();
         let mut games: Vec<Game> = Vec::new();
-        for library in self.find_steam_libraries() {
+        for library in self.find_steam_libraries(&roots) {
             let Ok(entries) = fs::read_dir(library.join("steamapps")) else {
                 continue;
             };
@@ -111,17 +198,20 @@ impl GameDetector for SteamDetector {
                 }
             }
         }
-        games
+        for game in self.shortcuts(&roots) {
+            if !games.iter().any(|g| g.id == game.id) {
+                games.push(game);
+            }
+        }
+        games.into_iter().map(Installed::plain).collect()
     }
 
     fn env_keys(&self) -> &'static [&'static str] {
-        &["SteamAppId"]
+        &["SteamAppId", "SteamGameId", "STEAM_COMPAT_DATA_PATH"]
     }
 
     fn identify(&self, env: &ProcessEnv) -> Option<GameRef> {
-        env.get("SteamAppId")
-            .filter(|id| id.as_str() != "0")
-            .map(|id| GameRef::Id(id.clone()))
+        identify_steam(env).map(GameRef::Id)
     }
 }
 
@@ -137,6 +227,49 @@ mod tests {
         assert!(is_tool("228980", "Steamworks Common Redistributables"));
         assert!(!is_tool("1245620", "ELDEN RING"));
         assert!(!is_tool("1", "Protonwar"));
+    }
+
+    fn env(pairs: &[(&'static str, &str)]) -> ProcessEnv {
+        pairs.iter().map(|(k, v)| (*k, v.to_string())).collect()
+    }
+
+    #[test]
+    fn identifies_steam_games_and_shortcuts() {
+        assert_eq!(
+            identify_steam(&env(&[("SteamAppId", "1245620")])).as_deref(),
+            Some("1245620")
+        );
+        // Shortcut: app ID 3733884208 -> game ID (3733884208 << 32) | 0x02000000
+        let game_id = ((3_733_884_208u64) << 32 | 0x0200_0000).to_string();
+        assert_eq!(
+            identify_steam(&env(&[("SteamAppId", "0"), ("SteamGameId", &game_id)])).as_deref(),
+            Some("3733884208")
+        );
+        assert_eq!(
+            identify_steam(&env(&[
+                ("SteamAppId", "0"),
+                (
+                    "STEAM_COMPAT_DATA_PATH",
+                    "/home/a/.local/share/Steam/steamapps/compatdata/3733884208/"
+                )
+            ]))
+            .as_deref(),
+            Some("3733884208")
+        );
+        assert_eq!(identify_steam(&env(&[("SteamAppId", "0")])), None);
+    }
+
+    #[test]
+    fn reads_shortcuts_vdf() {
+        let mut d = Vec::new();
+        d.extend(b"\x00shortcuts\x00\x000\x00\x02appid\x00");
+        d.extend(&(3_733_884_208u32 as i32).to_le_bytes());
+        d.extend(b"\x01AppName\x00Dolphin\x00\x01Exe\x00\"/usr/bin/dolphin-emu\"\x00\x08\x08\x08");
+        let games = parse_shortcuts(&d);
+        assert_eq!(games.len(), 1);
+        assert_eq!(games[0].name, "Dolphin");
+        assert_eq!(games[0].id.as_deref(), Some("3733884208"));
+        assert!(parse_shortcuts(b"garbage").is_empty());
     }
 
     #[test]

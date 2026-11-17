@@ -329,3 +329,161 @@ fn subscribers_get_updates_and_are_reaped_when_they_leave() {
     );
     assert!(r.get("error").is_none(), "{r}");
 }
+
+#[test]
+fn running_games_subscription_sends_initial_state_and_no_repeats() {
+    let d = Daemon::start(false, "");
+    let mut sub = connect(&d.core());
+    send(
+        &mut sub,
+        &format!("{CORE}SubscribeRunningGames"),
+        json!({}),
+        true,
+    );
+    let first = recv(&mut sub).unwrap();
+    assert_eq!(first["continues"], true, "{first}");
+    assert!(first["parameters"]["games"].is_array());
+
+    // Nothing changes, so nothing more arrives (the read times out).
+    sub.set_read_timeout(Some(Duration::from_millis(2500)))
+        .unwrap();
+    assert!(recv(&mut sub).is_err(), "no update without a change");
+}
+
+#[test]
+fn subscriptions_without_more_behave_like_list_calls() {
+    let d = Daemon::start(false, "");
+    for method in ["SubscribeRunningGames", "SubscribeDevices"] {
+        let r = call(&d.core(), &format!("{CORE}{method}"), json!({}));
+        assert!(r.get("error").is_none(), "{method}: {r}");
+        assert!(
+            r.get("continues").is_none_or(|c| c == false),
+            "{method}: {r}"
+        );
+    }
+}
+
+#[test]
+fn device_subscription_starts_and_reaps_cleanly() {
+    let d = Daemon::start(false, "[server]\nmax_connections_per_uid = 3\n");
+    std::thread::sleep(Duration::from_millis(300));
+    for _ in 0..2 {
+        let mut subs: Vec<_> = (0..3)
+            .map(|_| {
+                let mut s = connect(&d.core());
+                send(&mut s, &format!("{CORE}SubscribeDevices"), json!({}), true);
+                let r = recv(&mut s).unwrap();
+                assert!(r["parameters"]["devices"].is_array(), "{r}");
+                s
+            })
+            .collect();
+        subs.clear();
+        std::thread::sleep(Duration::from_millis(1500));
+    }
+}
+
+#[test]
+fn focus_reports_are_checked() {
+    let d = Daemon::start(false, "");
+    // Our own process: accepted.
+    let mut s = connect(&d.core());
+    send(
+        &mut s,
+        &format!("{CORE}ReportFocus"),
+        json!({"pid": std::process::id()}),
+        false,
+    );
+    assert!(recv(&mut s).unwrap().get("error").is_none());
+    // A PID that does not exist: rejected.
+    let r = call(
+        &d.core(),
+        &format!("{CORE}ReportFocus"),
+        json!({"pid": 999_999_999}),
+    );
+    assert_eq!(r["error"], format!("{CORE}InvalidFocus"), "{r}");
+}
+
+#[test]
+fn packed_matrix_round_trips_and_is_smaller() {
+    use base64::Engine;
+    use base64::engine::general_purpose::STANDARD as BASE64;
+
+    let d = Daemon::start(true, "");
+    let pixels: Vec<u8> = (0..128 * 128 * 4).map(|i| (i % 251) as u8).collect();
+    let r = call(
+        &d.control(),
+        &format!("{CTL}SetLightingContext"),
+        json!({"packed_matrix": {"width": 128, "height": 128, "rgba": BASE64.encode(&pixels)}}),
+    );
+    assert!(r.get("error").is_none(), "{r}");
+
+    let legacy = call(
+        &d.observer(),
+        &format!("{OBS}GetLightingContext"),
+        json!({}),
+    );
+    let packed = call(
+        &d.observer(),
+        &format!("{OBS}GetLightingContext"),
+        json!({"packed": true}),
+    );
+
+    let data = legacy["parameters"]["matrix"]["data"].as_array().unwrap();
+    assert_eq!(data.len(), 128 * 128);
+    assert_eq!(data[1]["r"], pixels[4] as i64);
+    assert!(
+        legacy["parameters"]
+            .get("packed_matrix")
+            .is_none_or(Value::is_null)
+    );
+
+    let rgba = packed["parameters"]["packed_matrix"]["rgba"]
+        .as_str()
+        .unwrap();
+    assert_eq!(BASE64.decode(rgba).unwrap(), pixels);
+    assert!(
+        packed["parameters"]
+            .get("matrix")
+            .is_none_or(Value::is_null)
+    );
+
+    let legacy_size = legacy.to_string().len();
+    let packed_size = packed.to_string().len();
+    eprintln!("128x128 frame: legacy {legacy_size} bytes, packed {packed_size} bytes");
+    assert!(packed_size * 4 < legacy_size);
+
+    let r = call(
+        &d.control(),
+        &format!("{CTL}SetLightingContext"),
+        json!({"packed_matrix": {"width": 1, "height": 1, "rgba": "%%%"}}),
+    );
+    assert_eq!(r["error"], format!("{CTL}InvalidPackedMatrix"), "{r}");
+}
+
+#[test]
+fn packed_subscription_streams_packed_frames() {
+    use base64::Engine;
+    use base64::engine::general_purpose::STANDARD as BASE64;
+
+    let d = Daemon::start(true, "");
+    let mut sub = connect(&d.observer());
+    send(
+        &mut sub,
+        &format!("{OBS}SubscribeLightingContext"),
+        json!({"packed": true}),
+        true,
+    );
+    recv(&mut sub).unwrap();
+    call(
+        &d.control(),
+        &format!("{CTL}SetLightingContext"),
+        json!({"matrix": {"width": 2, "height": 1, "data": [
+            {"r": 1, "g": 2, "b": 3, "a": 4}, {"r": 5, "g": 6, "b": 7, "a": 8}
+        ]}}),
+    );
+    let update = recv(&mut sub).unwrap();
+    let rgba = update["parameters"]["packed_matrix"]["rgba"]
+        .as_str()
+        .unwrap();
+    assert_eq!(BASE64.decode(rgba).unwrap(), [1, 2, 3, 4, 5, 6, 7, 8]);
+}

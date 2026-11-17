@@ -1,0 +1,20 @@
+[Unit]
+Description=Report the focused window to contextd
+Documentation=https://github.com/shanefagan/contextd
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+# Needs DISPLAY, SWAYSOCK or HYPRLAND_INSTANCE_SIGNATURE in the user
+# manager's environment. KDE and GNOME import DISPLAY; on Sway or Hyprland
+# run "dbus-update-activation-environment --systemd --all" at startup.
+ExecStart=/usr/bin/contextd-focus
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+LockPersonality=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=graphical-session.target

@@ -35,6 +35,12 @@ sed 's|/usr/bin/openrgb-contextd-bridge|/usr/local/bin/openrgb-contextd-bridge|'
     packaging/openrgb-contextd-bridge.service \
     | sudo tee /etc/systemd/system/openrgb-contextd-bridge.service > /dev/null
 sudo install -m 755 scripts/contextctl.sh /usr/local/bin/contextctl
+sudo install -m 755 target/release/contextd-focus /usr/local/bin/
+sed 's|/usr/bin/contextd-focus|/usr/local/bin/contextd-focus|' \
+    packaging/user/contextd-focus.service \
+    | sudo tee /etc/systemd/user/contextd-focus.service > /dev/null
+# Start the focus helper in every user's graphical session.
+sudo systemctl --global enable contextd-focus.service
 sudo systemctl daemon-reload
 
 echo "--- Attaching portable service from ${INSTALL_DIR} ---"
@@ -46,4 +52,5 @@ echo "--- Done! ---"
 echo "Status:          systemctl status contextd.socket contextd-rgb-control.socket"
 echo "List games:      contextctl list-games"
 echo "Set lighting:    add yourself to the contextd-rgb group, then: contextctl rgb-set 255 0 0"
+echo "Focus helper:    systemctl --user daemon-reload; systemctl --user start contextd-focus.service"
 echo "OpenRGB bridge:  sudo systemctl enable --now openrgb-contextd-bridge.service"

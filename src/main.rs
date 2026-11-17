@@ -19,12 +19,14 @@ mod server;
 mod service;
 mod sockets;
 mod util;
+mod watch;
 
 /// Generated types for the core interface, shared with contextd-client.
 pub use contextd_client::contextd;
 
 use crate::detectors::controllers::manager::ControllerManager;
 use crate::detectors::diagnostics::manager::DiagnosticsManager;
+use crate::detectors::focus::FocusTracker;
 use crate::detectors::games::manager::GameManager;
 use crate::detectors::hardware::manager::HardwareManager;
 use crate::server::Limits;
@@ -203,6 +205,7 @@ fn run() -> anyhow::Result<()> {
             hardware: Mutex::new(HardwareManager::new()),
             diagnostics: Mutex::new(DiagnosticsManager::new()),
             controllers: Mutex::new(ControllerManager::new()),
+            focus: Mutex::new(FocusTracker::new()),
         };
 
         let varlink_service = VarlinkService::new(

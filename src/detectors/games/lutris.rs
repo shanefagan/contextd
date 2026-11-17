@@ -1,4 +1,4 @@
-use super::{Game, GameDetector, GameRef, ProcessEnv, home_dirs};
+use super::{Game, GameDetector, GameRef, Installed, ProcessEnv, home_dirs};
 use rusqlite::{Connection, OpenFlags};
 use std::path::{Path, PathBuf};
 
@@ -41,6 +41,7 @@ impl LutrisDetector {
                 id: Some(row.get(1)?),
                 source: "Lutris".to_string(),
                 pid: None,
+                focused: None,
             })
         })
         .map(|rows| rows.flatten().collect())
@@ -53,7 +54,7 @@ impl GameDetector for LutrisDetector {
         "Lutris"
     }
 
-    fn list_installed(&self) -> Vec<Game> {
+    fn list_installed(&self) -> Vec<Installed> {
         let mut games: Vec<Game> = self
             .find_lutris_db_paths()
             .iter()
@@ -61,7 +62,7 @@ impl GameDetector for LutrisDetector {
             .collect();
         games.sort_by(|a, b| a.id.cmp(&b.id));
         games.dedup_by(|a, b| a.id == b.id);
-        games
+        games.into_iter().map(Installed::plain).collect()
     }
 
     fn env_keys(&self) -> &'static [&'static str] {

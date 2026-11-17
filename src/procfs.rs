@@ -61,6 +61,13 @@ pub fn rss_pages(pid: i32) -> Option<u64> {
     content.split_whitespace().nth(1)?.parse().ok()
 }
 
+/// First command-line argument of a process.
+pub fn argv0(pid: i32) -> Option<String> {
+    let raw = fs::read(format!("/proc/{pid}/cmdline")).ok()?;
+    let first = raw.split(|&b| b == 0).next()?;
+    (!first.is_empty()).then(|| String::from_utf8_lossy(first).into_owned())
+}
+
 /// Reads the selected environment variables of a process. Only keys listed
 /// in `keys` are returned, so callers never hold a whole environment (which
 /// may contain secrets) in memory longer than this call.

@@ -24,6 +24,12 @@
 - [x] **Code review fixes (v0.10.0)**: Fail-closed config, connection limits, socket activation, caller-bound controller hints, matrix overflow, Lutris/Heroic detection, OpenRGB bridge protocol.
 - [ ] **Privacy Masking**: Implement logic to mask specific apps/devices from public Varlink calls via `config.toml` (the blacklist covers part of this).
 - [ ] **Per-user core service**: Move game detection to a `systemctl --user` service so it needs no capabilities and users cannot see each other's games. Changes the core socket path.
+- [x] **Foreground game**: `contextd-focus` session helper (X11/XWayland, Hyprland, Sway).
+- [x] **Push updates**: `SubscribeRunningGames`, `SubscribeDevices`.
+- [x] **More launchers**: Steam shortcuts, Bottles, itch.io.
+- [x] **Real RGB device list** from OpenRGB's udev rules.
+- [x] **Compact matrix encoding** (`packed_matrix`).
+- [ ] **Native Wayland focus on KDE/GNOME**: needs a KWin script or GNOME extension to report focus.
 - [ ] **Lighting priorities**: Add a source name / priority to `SetLightingContext` so two controllers do not fight (last writer wins today).
 - [ ] **Expanded Launcher Support**: Add Legendary (Epic) and Minigalaxy (GOG) manifests.
 - [ ] **Arch Linux PKGBUILD**: Finalize the AUR package for the 1.0 release.

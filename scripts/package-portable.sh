@@ -2,7 +2,8 @@
 # Assembles the release tree:
 #   ${BUILD_DIR}/contextd/  portable service image (attach with portablectl)
 #   ${BUILD_DIR}/host/      files for the host: sysusers group, OpenRGB
-#                           bridge binary and unit, contextctl
+#                           bridge binary and unit, focus helper and its
+#                           user unit, contextctl
 set -euo pipefail
 
 BUILD_DIR=${1:-"dist"}
@@ -29,13 +30,17 @@ install -D -m 755 "${TARGET_DIR}/openrgb-contextd-bridge" "${HOST}/usr/bin/openr
 install -D -m 644 packaging/openrgb-contextd-bridge.service \
     "${HOST}/usr/lib/systemd/system/openrgb-contextd-bridge.service"
 install -D -m 755 scripts/contextctl.sh "${HOST}/usr/bin/contextctl"
+install -D -m 755 "${TARGET_DIR}/contextd-focus" "${HOST}/usr/bin/contextd-focus"
+install -D -m 644 packaging/user/contextd-focus.service \
+    "${HOST}/usr/lib/systemd/user/contextd-focus.service"
 
 cat <<'EOF' > "${BUILD_DIR}/INSTALL.txt"
 1. sudo cp -r contextd /opt/contextd
 2. sudo cp -r host/usr/. /usr/
 3. sudo systemd-sysusers contextd.conf
 4. sudo portablectl attach --now --enable --copy=symlink --profile=trusted /opt/contextd
-5. Optional: sudo systemctl enable --now openrgb-contextd-bridge.service
+5. sudo systemctl --global enable contextd-focus.service   (focus helper for every user's graphical session; log in again)
+6. Optional: sudo systemctl enable --now openrgb-contextd-bridge.service
 Users who may change lighting need to be in the contextd-rgb group.
 EOF
 

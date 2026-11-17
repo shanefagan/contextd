@@ -37,6 +37,8 @@ cp -a build/tree/host/usr %{buildroot}/usr
 # The control socket's group must exist before its socket unit starts.
 systemd-sysusers contextd.conf
 systemctl daemon-reload || :
+# Focus helper in every user's graphical session (from next login).
+systemctl --global enable contextd-focus.service || :
 echo ">>> Attaching contextd portable service from /opt..."
 portablectl detach --now --enable contextd 2>/dev/null || :
 portablectl attach --now --enable --copy=symlink --profile=trusted /opt/contextd
@@ -44,6 +46,7 @@ portablectl attach --now --enable --copy=symlink --profile=trusted /opt/contextd
 %preun
 if [ $1 -eq 0 ]; then
     systemctl disable --now openrgb-contextd-bridge.service 2>/dev/null || :
+    systemctl --global disable contextd-focus.service 2>/dev/null || :
     echo ">>> Detaching contextd portable service..."
     portablectl detach --now --enable contextd || :
 fi
@@ -52,6 +55,8 @@ fi
 /opt/contextd/
 %{_bindir}/openrgb-contextd-bridge
 %{_bindir}/contextctl
+%{_bindir}/contextd-focus
+/usr/lib/systemd/user/contextd-focus.service
 /usr/lib/systemd/system/openrgb-contextd-bridge.service
 /usr/lib/sysusers.d/contextd.conf
 

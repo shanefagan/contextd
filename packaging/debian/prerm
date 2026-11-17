@@ -4,6 +4,7 @@ set -e
 case "$1" in
     remove|deconfigure)
         systemctl disable --now openrgb-contextd-bridge.service 2>/dev/null || true
+        systemctl --global disable contextd-focus.service 2>/dev/null || true
         echo ">>> Detaching contextd portable service..."
         portablectl detach --now --enable contextd || true
     ;;
