@@ -2,9 +2,15 @@
 set -e
 
 case "$1" in
-    remove|upgrade|deconfigure)
+    remove|deconfigure)
+        systemctl disable --now openrgb-contextd-bridge.service 2>/dev/null || true
         echo ">>> Detaching contextd portable service..."
-        portablectl detach contextd --now || true
+        portablectl detach --now --enable contextd || true
+    ;;
+
+    upgrade)
+        # postinst of the new version reattaches.
+        portablectl detach --now contextd || true
     ;;
 
     failed-upgrade)

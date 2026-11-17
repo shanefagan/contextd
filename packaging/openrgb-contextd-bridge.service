@@ -1,20 +1,40 @@
 [Unit]
-Description=OpenRGB SDK to contextd RGB Bridge
-After=network.target contextd-rgb.service contextd.service
-Requires=contextd.service
+Description=OpenRGB SDK to contextd RGB bridge
+Documentation=https://github.com/shanefagan/contextd
+# Connecting to the control socket starts contextd-rgb on demand.
+Requires=contextd-rgb-control.socket
+After=contextd-rgb-control.socket
 
 [Service]
 ExecStart=/usr/bin/openrgb-contextd-bridge
 DynamicUser=yes
-StateDirectory=contextd
-RuntimeDirectory=contextd
-BindPaths=/run/contextd
-BindReadOnlyPaths=/usr/lib /usr/lib64 /lib /lib64 /etc/ld.so.cache
-ProtectSystem=strict
-ProtectHome=read-only
+SupplementaryGroups=contextd-rgb
+# Set OPENRGB_SERVER_PORT here if OpenRGB's own SDK server uses 6742.
+#Environment=OPENRGB_SERVER_PORT=6743
+CapabilityBoundingSet=
+AmbientCapabilities=
 NoNewPrivileges=yes
-RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ProtectSystem=strict
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+PrivateTmp=yes
 PrivateDevices=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressAllow=localhost
+IPAddressDeny=any
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
 
 [Install]
 WantedBy=multi-user.target

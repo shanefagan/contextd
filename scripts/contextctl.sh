@@ -6,13 +6,16 @@ RGB_OBS_ADDR="unix:/run/contextd/public/contextd-rgb-observer.socket"
 RGB_CTRL_ADDR="unix:/run/contextd/private/contextd-rgb-control.socket"
 
 usage() {
-    echo "Usage: $0 [active|list-games|list-devices|list-rgb|list-controllers|hint|diagnostics|rgb-get|rgb-set|rgb-set-matrix|rgb-subscribe]"
+    echo "Usage: $0 [active|running|list-games|list-devices|list-rgb|list-controllers|hint|diagnostics|rgb-get|rgb-set|rgb-set-matrix|rgb-clear-matrix|rgb-subscribe]"
+    echo "  active                Most recently launched running game"
+    echo "  running               All running games"
     echo "  list-controllers      List apps that have registered interest in devices"
     echo "  hint NAME DEVICE...   Register a quick hint for the current shell"
     echo "  rgb-get/subscribe use the PUBLIC observer socket (0666)"
-    echo "  rgb-set uses the PRIVATE control socket (0660, contextd-rgb group)"
+    echo "  rgb-set* use the PRIVATE control socket (0660, contextd-rgb group)"
     echo "  rgb-set R G B [A]  (Alpha defaults to 255)"
     echo "  rgb-set-matrix W H R G B [A]  (Sets an entire WxH matrix to a solid color)"
+    echo "  rgb-clear-matrix   Removes the matrix, keeping the main color"
     exit 1
 }
 
@@ -26,6 +29,9 @@ shift
 case $CMD in
     active)
         varlinkctl call $ADDR com.performativenonsense.contextd.GetActiveGame "{}"
+        ;;
+    running)
+        varlinkctl call $ADDR com.performativenonsense.contextd.ListRunningGames "{}"
         ;;
     list-games)
         varlinkctl call $ADDR com.performativenonsense.contextd.ListInstalledGames "{}"
@@ -55,6 +61,7 @@ case $CMD in
                 \"interested_devices\": [$DEVICES]
             }
         }"
+        # varlinkctl is our child, so the daemon accepts $$ (its parent) as the hint PID.
         echo "Hint registered for PID $$. Press Ctrl+C to unregister and exit."
         # Keep alive until interrupted
         trap "varlinkctl call $ADDR com.performativenonsense.contextd.UnregisterController '{\"pid\": $$}'; exit" SIGINT SIGTERM
@@ -90,6 +97,9 @@ case $CMD in
             exit;
         }')
         varlinkctl call $RGB_CTRL_ADDR com.performativenonsense.contextd.rgb.Control.SetLightingContext "$JSON"
+        ;;
+    rgb-clear-matrix)
+        varlinkctl call $RGB_CTRL_ADDR com.performativenonsense.contextd.rgb.Control.SetLightingContext '{"clear_matrix": true}'
         ;;
     *)
         usage

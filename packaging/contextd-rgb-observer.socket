@@ -1,0 +1,13 @@
+[Unit]
+Description=Context Daemon RGB observer socket
+Documentation=https://github.com/shanefagan/contextd
+
+[Socket]
+ListenStream=/run/contextd/public/contextd-rgb-observer.socket
+FileDescriptorName=observer
+SocketMode=0666
+DirectoryMode=0755
+Service=contextd-rgb.service
+
+[Install]
+WantedBy=sockets.target

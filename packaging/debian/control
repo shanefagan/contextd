@@ -1,10 +1,11 @@
 Package: contextd
-Version: 0.1.0-1
+Version: 0.10.0-1
 Section: admin
 Priority: optional
 Architecture: amd64
 Maintainer: Shane Fagan <shane@performativenonsense.com>
-Depends: systemd, portablectl
+Depends: systemd, systemd-container
 Description: Lightweight game and hardware context daemon (Portable Hybrid)
- A generic, lightweight Linux daemon that exposes process context and 
- hardware inventory. Packaged as a systemd portable service.
+ A generic, lightweight Linux daemon that exposes process context and
+ hardware inventory. Packaged as a systemd portable service, with an
+ optional OpenRGB SDK bridge.

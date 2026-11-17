@@ -1,44 +1,45 @@
 [Unit]
-Description=Context Daemon - RGB Control Extension
-After=network.target contextd.service
-Requires=contextd.service
+Description=Context Daemon - RGB lighting context
+Documentation=https://github.com/shanefagan/contextd
+Requires=contextd-rgb-observer.socket contextd-rgb-control.socket
+After=contextd-rgb-observer.socket contextd-rgb-control.socket
 
 [Service]
 ExecStart=/usr/bin/contextd --rgb
+Sockets=contextd-rgb-observer.socket contextd-rgb-control.socket
 DynamicUser=yes
-User=contextd
-SupplementaryGroups=input
-StateDirectory=contextd
-RuntimeDirectory=contextd
-BindPaths=/run/contextd
-BindReadOnlyPaths=/usr/lib /usr/lib64 /lib /lib64 /etc/ld.so.cache -/etc/contextd /home /run/udev /sys
-ProtectHome=read-only
+BindReadOnlyPaths=/usr/lib -/usr/lib64 -/lib -/lib64 /etc/ld.so.cache -/etc/contextd
+# Needs no capabilities: it relays colors and reads peers' cgroups.
+CapabilityBoundingSet=
+AmbientCapabilities=
 NoNewPrivileges=yes
 
 # Accounting
 CPUAccounting=yes
 MemoryAccounting=yes
-IOAccounting=yes
 TasksAccounting=yes
-IPAccounting=yes
 
 # Sandboxing & Security
 ProtectSystem=strict
+ProtectHome=yes
 ProtectHostname=yes
 ProtectKernelLogs=yes
 ProtectKernelModules=yes
 ProtectKernelTunables=yes
 ProtectControlGroups=yes
 ProtectClock=yes
+PrivateNetwork=yes
+PrivateTmp=yes
+PrivateDevices=yes
 MemoryDenyWriteExecute=yes
-RestrictAddressFamilies=AF_UNIX AF_NETLINK
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
 RestrictRealtime=yes
 RestrictSUIDSGID=yes
 LockPersonality=yes
-PrivateDevices=no
-PrivateTmp=yes
-SystemCallFilter=@system-service @process @file-system
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
 SystemCallErrorNumber=EPERM
 
 [Install]
-WantedBy=multi-user.target
+Also=contextd-rgb-observer.socket contextd-rgb-control.socket
