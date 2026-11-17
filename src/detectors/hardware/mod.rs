@@ -8,4 +8,5 @@ pub trait HardwareDetector: Send + Sync {
 }
 
 pub mod manager;
+pub mod rgb_ids;
 pub mod udev;

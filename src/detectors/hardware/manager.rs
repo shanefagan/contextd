@@ -36,12 +36,12 @@ impl HardwareManager {
         devices
     }
 
-    /// Devices with a raw HID node, which is how almost all RGB peripherals
-    /// are driven. contextd cannot tell which of them actually have LEDs.
+    /// Devices known to have RGB lighting (class `rgb`): listed in
+    /// OpenRGB's udev rules or tagged `ID_CONTEXTD_RGB=1`.
     pub fn list_rgb_devices(&mut self) -> Vec<Device> {
         self.list_all_devices()
             .into_iter()
-            .filter(|d| d.classes.iter().any(|c| c == "hid"))
+            .filter(|d| d.classes.iter().any(|c| c == "rgb"))
             .collect()
     }
 }
@@ -100,10 +100,10 @@ mod tests {
     }
 
     #[test]
-    fn rgb_list_is_hid_devices_only() {
+    fn rgb_list_is_rgb_devices_only() {
         let mut mgr = manager(vec![
-            dev("mouse", &["mouse"]),
-            dev("kbd", &["keyboard", "hid"]),
+            dev("mouse", &["mouse", "hid"]),
+            dev("kbd", &["keyboard", "hid", "rgb"]),
         ]);
         let rgb = mgr.list_rgb_devices();
         assert_eq!(rgb.len(), 1);

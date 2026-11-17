@@ -81,9 +81,10 @@ method ListInstalledGames() -> (games: []Game)
 # Lists connected keyboards, mice, controllers, audio devices and HID devices.
 method ListDevices() -> (devices: []Device)
 
-# Lists devices that expose a raw HID node, which is how most RGB
-# controllers are driven. This is a candidate list: contextd cannot tell
-# which of these devices actually have LEDs.
+# Lists devices with RGB lighting: those whose USB/HID vendor and product
+# ID appear in OpenRGB's installed udev rules, or that a udev rule tags
+# with ID_CONTEXTD_RGB=1. These devices also have the class "rgb" in
+# ListDevices. Empty when neither source knows any connected device.
 method ListRGBDevices() -> (devices: []Device)
 
 # Returns diagnostic information for the system.

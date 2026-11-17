@@ -10,7 +10,7 @@ Sockets=contextd.socket
 DynamicUser=yes
 # Host paths the daemon reads. In the portable image these are the only
 # host files it can see at all; "-" marks paths that may not exist.
-BindReadOnlyPaths=/usr/lib -/usr/lib64 -/lib -/lib64 /etc/ld.so.cache -/etc/contextd -/etc/passwd /home /run/udev /sys -/usr/share/hwdata -/usr/share/vulkan -/etc/vulkan -/usr/share/glvnd
+BindReadOnlyPaths=/usr/lib -/usr/lib64 -/lib -/lib64 /etc/ld.so.cache -/etc/contextd -/etc/passwd -/etc/udev/rules.d /home /run/udev /sys -/usr/share/hwdata -/usr/share/vulkan -/etc/vulkan -/usr/share/glvnd
 # CAP_SYS_PTRACE reads /proc/*/environ to spot game processes;
 # CAP_DAC_READ_SEARCH reads launcher manifests in users' homes.
 CapabilityBoundingSet=CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
