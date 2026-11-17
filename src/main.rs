@@ -19,6 +19,7 @@ mod server;
 mod service;
 mod sockets;
 mod util;
+mod watch;
 
 /// Generated types for the core interface, shared with contextd-client.
 pub use contextd_client::contextd;

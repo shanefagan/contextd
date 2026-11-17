@@ -329,3 +329,76 @@ fn subscribers_get_updates_and_are_reaped_when_they_leave() {
     );
     assert!(r.get("error").is_none(), "{r}");
 }
+
+#[test]
+fn running_games_subscription_sends_initial_state_and_no_repeats() {
+    let d = Daemon::start(false, "");
+    let mut sub = connect(&d.core());
+    send(
+        &mut sub,
+        &format!("{CORE}SubscribeRunningGames"),
+        json!({}),
+        true,
+    );
+    let first = recv(&mut sub).unwrap();
+    assert_eq!(first["continues"], true, "{first}");
+    assert!(first["parameters"]["games"].is_array());
+
+    // Nothing changes, so nothing more arrives (the read times out).
+    sub.set_read_timeout(Some(Duration::from_millis(2500)))
+        .unwrap();
+    assert!(recv(&mut sub).is_err(), "no update without a change");
+}
+
+#[test]
+fn subscriptions_without_more_behave_like_list_calls() {
+    let d = Daemon::start(false, "");
+    for method in ["SubscribeRunningGames", "SubscribeDevices"] {
+        let r = call(&d.core(), &format!("{CORE}{method}"), json!({}));
+        assert!(r.get("error").is_none(), "{method}: {r}");
+        assert!(
+            r.get("continues").is_none_or(|c| c == false),
+            "{method}: {r}"
+        );
+    }
+}
+
+#[test]
+fn device_subscription_starts_and_reaps_cleanly() {
+    let d = Daemon::start(false, "[server]\nmax_connections_per_uid = 3\n");
+    std::thread::sleep(Duration::from_millis(300));
+    for _ in 0..2 {
+        let mut subs: Vec<_> = (0..3)
+            .map(|_| {
+                let mut s = connect(&d.core());
+                send(&mut s, &format!("{CORE}SubscribeDevices"), json!({}), true);
+                let r = recv(&mut s).unwrap();
+                assert!(r["parameters"]["devices"].is_array(), "{r}");
+                s
+            })
+            .collect();
+        subs.clear();
+        std::thread::sleep(Duration::from_millis(1500));
+    }
+}
+
+#[test]
+fn focus_reports_are_checked() {
+    let d = Daemon::start(false, "");
+    // Our own process: accepted.
+    let mut s = connect(&d.core());
+    send(
+        &mut s,
+        &format!("{CORE}ReportFocus"),
+        json!({"pid": std::process::id()}),
+        false,
+    );
+    assert!(recv(&mut s).unwrap().get("error").is_none());
+    // A PID that does not exist: rejected.
+    let r = call(
+        &d.core(),
+        &format!("{CORE}ReportFocus"),
+        json!({"pid": 999_999_999}),
+    );
+    assert_eq!(r["error"], format!("{CORE}InvalidFocus"), "{r}");
+}

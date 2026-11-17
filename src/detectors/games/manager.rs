@@ -136,8 +136,21 @@ impl GameManager {
     /// Running games with focus applied: the game owning the focused
     /// window first, then the most recently launched. `Game.focused` is
     /// set for every game when focus is known and null otherwise.
+    #[cfg(test)]
     pub fn running_focused(&mut self, focus: Focus, procs: &dyn ProcessSource) -> Vec<Game> {
-        let sessions = self.sessions();
+        let ttl = Duration::from_secs(config::get().ttls.games);
+        self.running_focused_max_age(focus, procs, ttl)
+    }
+
+    /// Like [`running_focused`](Self::running_focused), from a scan at
+    /// most `max_age` old.
+    pub fn running_focused_max_age(
+        &mut self,
+        focus: Focus,
+        procs: &dyn ProcessSource,
+        max_age: Duration,
+    ) -> Vec<Game> {
+        let sessions = self.sessions(max_age);
         let focused_idx = match focus {
             Focus::Pid(pid) => Self::session_for(&sessions, pid, procs),
             _ => None,
@@ -171,10 +184,9 @@ impl GameManager {
     }
 
     /// Running game sessions, most recently launched first (cached).
-    fn sessions(&mut self) -> Vec<RunningGame> {
-        let ttl = Duration::from_secs(config::get().ttls.games);
+    fn sessions(&mut self, max_age: Duration) -> Vec<RunningGame> {
         if let Some((cache, ts)) = &self.running_cache
-            && ts.elapsed() < ttl
+            && ts.elapsed() < max_age
         {
             return cache.clone();
         }

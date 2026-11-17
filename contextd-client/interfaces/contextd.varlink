@@ -79,6 +79,17 @@ method GetActiveGame() -> (game: ?Game)
 # launched.
 method ListRunningGames() -> (games: []Game)
 
+# Streams the running games, as ListRunningGames returns them: once
+# straight away and again whenever the list or focus changes. Call with
+# "more": true. New games are noticed within about a second, focus
+# changes immediately.
+method SubscribeRunningGames() -> (games: []Game)
+
+# Streams the device list, as ListDevices returns it: once straight away
+# and again whenever a device is added, removed or changed, or a
+# controller hint changes. Call with "more": true.
+method SubscribeDevices() -> (devices: []Device)
+
 # Reports which process owns the focused window in the caller's graphical
 # session; null when no window (or one without a known process) has focus.
 # Sent by a session helper such as contextd-focus. The process must belong

@@ -273,6 +273,65 @@ impl CoreClient {
             .call(|c| c.register_controller(controller.clone()).call().map(|_| ()))
     }
 
+    /// Streams the running-games list to `on_change`: once straight away
+    /// and again whenever it changes. Reconnects if the daemon restarts;
+    /// returns when the callback returns [`ControlFlow::Break`].
+    pub fn subscribe_running_games<F>(&self, mut on_change: F) -> Result<(), ClientError>
+    where
+        F: FnMut(Vec<Game>) -> ControlFlow<()>,
+    {
+        self.stream(|c| {
+            let mut call = c.subscribe_running_games();
+            for reply in call.more()? {
+                if on_change(reply?.games).is_break() {
+                    return Ok(ControlFlow::Break(()));
+                }
+            }
+            Ok(ControlFlow::Continue(()))
+        })
+    }
+
+    /// Streams the device list to `on_change`: once straight away and again
+    /// whenever a device or controller hint changes. Reconnects if the
+    /// daemon restarts; returns when the callback returns
+    /// [`ControlFlow::Break`].
+    pub fn subscribe_devices<F>(&self, mut on_change: F) -> Result<(), ClientError>
+    where
+        F: FnMut(Vec<Device>) -> ControlFlow<()>,
+    {
+        self.stream(|c| {
+            let mut call = c.subscribe_devices();
+            for reply in call.more()? {
+                if on_change(reply?.devices).is_break() {
+                    return Ok(ControlFlow::Break(()));
+                }
+            }
+            Ok(ControlFlow::Continue(()))
+        })
+    }
+
+    /// Runs `body` on a dedicated connection, reconnecting after errors or
+    /// when the daemon ends the stream, until `body` breaks.
+    fn stream(
+        &self,
+        mut body: impl FnMut(&mut contextd::VarlinkClient) -> Result<ControlFlow<()>, contextd::Error>,
+    ) -> Result<(), ClientError> {
+        loop {
+            match varlink::Connection::with_address(&self.conn.address) {
+                Ok(conn) => {
+                    let mut client = contextd::VarlinkClient::new(conn);
+                    match body(&mut client) {
+                        Ok(ControlFlow::Break(())) => return Ok(()),
+                        Ok(ControlFlow::Continue(())) => {}
+                        Err(e) => warn!("contextd subscription ended: {}", e),
+                    }
+                }
+                Err(e) => warn!("Could not connect to contextd: {}", e),
+            }
+            thread::sleep(Duration::from_secs(3));
+        }
+    }
+
     /// Reports the process that owns the focused window in this session
     /// (`None` when nothing is focused). Used by session helpers.
     pub fn report_focus(&self, pid: Option<i64>) -> Result<(), ClientError> {

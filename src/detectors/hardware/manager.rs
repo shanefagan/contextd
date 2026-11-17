@@ -1,11 +1,19 @@
 use super::udev::UdevDetector;
 use super::{Device, HardwareDetector};
 use crate::config;
+use crate::watch;
 use std::time::{Duration, Instant};
+
+struct Cached {
+    devices: Vec<Device>,
+    at: Instant,
+    /// udev generation the scan saw; a newer one means it is stale.
+    udev_generation: u64,
+}
 
 pub struct HardwareManager {
     detectors: Vec<Box<dyn HardwareDetector>>,
-    device_cache: Option<(Vec<Device>, Instant)>,
+    device_cache: Option<Cached>,
 }
 
 impl HardwareManager {
@@ -17,11 +25,18 @@ impl HardwareManager {
     }
 
     pub fn list_all_devices(&mut self) -> Vec<Device> {
-        let ttl = Duration::from_secs(config::get().ttls.hardware);
-        if let Some((cache, ts)) = &self.device_cache
-            && ts.elapsed() < ttl
+        self.list_all_devices_max_age(Duration::from_secs(config::get().ttls.hardware))
+    }
+
+    /// Devices from a scan at most `max_age` old, and newer than the last
+    /// change the udev watcher saw.
+    pub fn list_all_devices_max_age(&mut self, max_age: Duration) -> Vec<Device> {
+        let generation = watch::UDEV.current();
+        if let Some(c) = &self.device_cache
+            && c.at.elapsed() < max_age
+            && c.udev_generation == generation
         {
-            return cache.clone();
+            return c.devices.clone();
         }
 
         let blacklist = &config::get().blacklist.devices;
@@ -32,7 +47,11 @@ impl HardwareManager {
             .filter(|d| !d.paths.iter().any(|p| blacklist.contains(p)))
             .collect();
 
-        self.device_cache = Some((devices.clone(), Instant::now()));
+        self.device_cache = Some(Cached {
+            devices: devices.clone(),
+            at: Instant::now(),
+            udev_generation: generation,
+        });
         devices
     }
 
