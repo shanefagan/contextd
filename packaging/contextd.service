@@ -20,8 +20,7 @@ NoNewPrivileges=yes
 # visible and CAP_DAC_READ_SEARCH would otherwise reach these.
 InaccessiblePaths=-/etc/shadow -/etc/gshadow -/etc/shadow- -/etc/gshadow- -/etc/ssh -/root -/var/lib -/etc/NetworkManager/system-connections
 
-# Accounting
-CPUAccounting=yes
+# Accounting (CPU accounting is always on with cgroup v2; systemd 258 removed the option)
 MemoryAccounting=yes
 IOAccounting=yes
 TasksAccounting=yes

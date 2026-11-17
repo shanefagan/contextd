@@ -14,8 +14,7 @@ CapabilityBoundingSet=
 AmbientCapabilities=
 NoNewPrivileges=yes
 
-# Accounting
-CPUAccounting=yes
+# Accounting (CPU accounting is always on with cgroup v2; systemd 258 removed the option)
 MemoryAccounting=yes
 TasksAccounting=yes
 
