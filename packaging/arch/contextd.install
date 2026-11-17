@@ -4,6 +4,7 @@ post_install() {
   systemd-sysusers contextd.conf
   echo ">>> Attaching contextd portable service from /opt..."
   portablectl attach --now --enable --copy=symlink --profile=trusted /opt/contextd
+  systemctl --global enable contextd-focus.service
   echo ">>> Add users who may change lighting to the contextd-rgb group."
   echo ">>> Optional OpenRGB bridge: systemctl enable --now openrgb-contextd-bridge.service"
 }
@@ -11,6 +12,7 @@ post_install() {
 pre_remove() {
   echo ">>> Detaching contextd portable service..."
   systemctl disable --now openrgb-contextd-bridge.service 2>/dev/null || true
+  systemctl --global disable contextd-focus.service 2>/dev/null || true
   portablectl detach --now --enable contextd || true
 }
 

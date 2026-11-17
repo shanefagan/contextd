@@ -273,6 +273,12 @@ impl CoreClient {
             .call(|c| c.register_controller(controller.clone()).call().map(|_| ()))
     }
 
+    /// Reports the process that owns the focused window in this session
+    /// (`None` when nothing is focused). Used by session helpers.
+    pub fn report_focus(&self, pid: Option<i64>) -> Result<(), ClientError> {
+        self.conn.call(|c| c.report_focus(pid).call().map(|_| ()))
+    }
+
     pub fn unregister_controller(&self, pid: i64) -> Result<(), ClientError> {
         self.conn
             .call(|c| c.unregister_controller(pid).call().map(|_| ()))

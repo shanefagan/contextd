@@ -41,6 +41,7 @@ impl LutrisDetector {
                 id: Some(row.get(1)?),
                 source: "Lutris".to_string(),
                 pid: None,
+                focused: None,
             })
         })
         .map(|rows| rows.flatten().collect())

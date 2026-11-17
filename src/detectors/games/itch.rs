@@ -81,6 +81,7 @@ pub fn read_caves(db: &Path) -> Vec<Installed> {
                     id: Some(game_id.to_string()),
                     source: "itch.io".to_string(),
                     pid: None,
+                    focused: None,
                 },
                 hint: MatchHint::InstallDir(dir),
             })

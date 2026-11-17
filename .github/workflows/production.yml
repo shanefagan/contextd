@@ -54,6 +54,10 @@ jobs:
           units=$(ls packaging/*.service packaging/*.socket | xargs -n1 basename | paste -sd'|')
           systemd-analyze verify --man=no --recursive-errors=no packaging/*.service packaging/*.socket 2>&1 \
             | grep -E "(^|/)($units)(:| )" | grep -v "is not executable" > /tmp/verify.log || true
+          # User units (the focus helper) need a user manager context.
+          user_units=$(ls packaging/user/*.service | xargs -n1 basename | paste -sd'|')
+          XDG_RUNTIME_DIR=$(mktemp -d) systemd-analyze --user verify --man=no --recursive-errors=no packaging/user/*.service 2>&1 \
+            | grep -E "(^|/)($user_units)(:| )" | grep -v "is not executable" >> /tmp/verify.log || true
           cat /tmp/verify.log
           test ! -s /tmp/verify.log
 

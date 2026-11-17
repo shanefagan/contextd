@@ -4,6 +4,7 @@ members = [
     ".",
     "contextd-client",
     "bridges/openrgb-contextd-bridge",
+    "helpers/contextd-focus",
 ]
 exclude = [
     "packaging/**",

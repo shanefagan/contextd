@@ -163,6 +163,7 @@ mod tests {
             id: Some("1".into()),
             source: "T".into(),
             pid: None,
+            focused: None,
         }
     }
 

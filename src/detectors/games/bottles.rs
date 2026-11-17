@@ -89,6 +89,7 @@ pub fn parse_bottle(dir: &Path, config: &str) -> Vec<Installed> {
                     id: Some(format!("{bottle}/{program_id}")),
                     source: "Bottles".to_string(),
                     pid: None,
+                    focused: None,
                 },
                 hint: MatchHint::WineProgram {
                     prefix: dir.to_path_buf(),

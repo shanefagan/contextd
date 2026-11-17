@@ -97,6 +97,7 @@ impl SteamDetector {
             id: Some(id),
             source: "Steam".to_string(),
             pid: None,
+            focused: None,
         })
     }
 
@@ -139,6 +140,7 @@ pub fn parse_shortcuts(data: &[u8]) -> Vec<Game> {
                 id: Some(app_id.to_string()),
                 source: "Steam (Shortcut)".to_string(),
                 pid: None,
+                focused: None,
             })
         })
         .collect()

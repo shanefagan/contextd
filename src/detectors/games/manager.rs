@@ -14,6 +14,8 @@ use super::lutris::LutrisDetector;
 use super::steam::SteamDetector;
 use super::{Game, GameDetector, GameRef, Installed, MatchHint, ProcessEnv, ProcessInfo};
 use crate::config;
+use crate::detectors::controllers::manager::ProcessSource;
+use crate::detectors::focus::Focus;
 use crate::procfs;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -57,11 +59,22 @@ fn scan_processes(keys: &[&'static str], with_paths: bool) -> Vec<ProcessSample>
         .collect()
 }
 
+/// A running game and every process that belongs to it.
+#[derive(Debug, Clone)]
+struct RunningGame {
+    game: Game,
+    pids: Vec<i32>,
+}
+
+/// How far up the process tree a focused window's owner is followed to
+/// find the game it belongs to.
+const MAX_FOCUS_ANCESTORS: usize = 8;
+
 pub struct GameManager {
     detectors: Vec<Box<dyn GameDetector>>,
     scanner: ProcessScanner,
     installed_cache: Option<(Vec<Vec<Installed>>, Instant)>,
-    running_cache: Option<(Vec<Game>, Instant)>,
+    running_cache: Option<(Vec<RunningGame>, Instant)>,
 }
 
 impl GameManager {
@@ -111,8 +124,54 @@ impl GameManager {
             .collect()
     }
 
-    /// Running games, most recently launched first.
+    /// Running games, most recently launched first, without focus.
+    #[cfg(test)]
     pub fn running(&mut self) -> Vec<Game> {
+        self.running_focused(
+            Focus::Unknown,
+            &crate::detectors::controllers::manager::SystemProcesses,
+        )
+    }
+
+    /// Running games with focus applied: the game owning the focused
+    /// window first, then the most recently launched. `Game.focused` is
+    /// set for every game when focus is known and null otherwise.
+    pub fn running_focused(&mut self, focus: Focus, procs: &dyn ProcessSource) -> Vec<Game> {
+        let sessions = self.sessions();
+        let focused_idx = match focus {
+            Focus::Pid(pid) => Self::session_for(&sessions, pid, procs),
+            _ => None,
+        };
+        let mut games: Vec<Game> = sessions.into_iter().map(|s| s.game).collect();
+        if focus != Focus::Unknown {
+            for (i, game) in games.iter_mut().enumerate() {
+                game.focused = Some(Some(i) == focused_idx);
+            }
+        }
+        if let Some(i) = focused_idx {
+            let game = games.remove(i);
+            games.insert(0, game);
+        }
+        games
+    }
+
+    /// The session owning `pid` or one of its ancestors.
+    fn session_for(sessions: &[RunningGame], pid: i32, procs: &dyn ProcessSource) -> Option<usize> {
+        let mut current = pid;
+        for _ in 0..=MAX_FOCUS_ANCESTORS {
+            if current <= 1 {
+                return None;
+            }
+            if let Some(i) = sessions.iter().position(|s| s.pids.contains(&current)) {
+                return Some(i);
+            }
+            current = procs.status(current)?.ppid;
+        }
+        None
+    }
+
+    /// Running game sessions, most recently launched first (cached).
+    fn sessions(&mut self) -> Vec<RunningGame> {
         let ttl = Duration::from_secs(config::get().ttls.games);
         if let Some((cache, ts)) = &self.running_cache
             && ts.elapsed() < ttl
@@ -139,6 +198,7 @@ impl GameManager {
             game: Game,
             started: u64,
             best_rss: u64,
+            pids: Vec<i32>,
         }
         let mut sessions: HashMap<(usize, GameRef), Session> = HashMap::new();
 
@@ -151,7 +211,9 @@ impl GameManager {
                 game: game.clone(),
                 started: sample.start_time,
                 best_rss: 0,
+                pids: Vec::new(),
             });
+            session.pids.push(sample.pid);
             session.started = session.started.min(sample.start_time);
             // The game itself is usually the biggest process tagged with
             // the launcher variable; wrappers and reapers are tiny.
@@ -167,10 +229,13 @@ impl GameManager {
                 .cmp(&a.started)
                 .then(a.game.name.cmp(&b.game.name))
         });
-        let running: Vec<Game> = sessions
+        let running: Vec<RunningGame> = sessions
             .into_iter()
-            .map(|s| s.game)
-            .filter(Self::not_blacklisted)
+            .filter(|s| Self::not_blacklisted(&s.game))
+            .map(|s| RunningGame {
+                game: s.game,
+                pids: s.pids,
+            })
             .collect();
 
         self.running_cache = Some((running.clone(), Instant::now()));
@@ -255,6 +320,7 @@ mod tests {
             id: Some(id.into()),
             source: "Mock".into(),
             pid: None,
+            focused: None,
         }
     }
 
@@ -302,6 +368,24 @@ mod tests {
         assert_eq!(m.installed().len(), 3);
         m.detectors.clear();
         assert_eq!(m.installed().len(), 3, "served from cache");
+    }
+
+    #[test]
+    fn focused_game_comes_first_and_is_flagged() {
+        use crate::detectors::controllers::manager::SystemProcesses;
+        let mut m = manager(vec![sample(10, 100, 5, "1"), sample(21, 510, 900, "2")]);
+        let unknown = m.running_focused(Focus::Unknown, &SystemProcesses);
+        assert_eq!(unknown[0].name, "Newer");
+        assert!(unknown.iter().all(|g| g.focused.is_none()));
+
+        let focused = m.running_focused(Focus::Pid(10), &SystemProcesses);
+        assert_eq!(focused[0].name, "Older");
+        assert_eq!(focused[0].focused, Some(true));
+        assert_eq!(focused[1].focused, Some(false));
+
+        let nothing = m.running_focused(Focus::Nothing, &SystemProcesses);
+        assert_eq!(nothing[0].name, "Newer");
+        assert!(nothing.iter().all(|g| g.focused == Some(false)));
     }
 
     #[test]

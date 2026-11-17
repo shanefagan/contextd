@@ -52,6 +52,7 @@ fn game(id: &str, name: String, source: &str) -> Game {
         id: Some(id.to_string()),
         source: source.to_string(),
         pid: None,
+        focused: None,
     }
 }
 

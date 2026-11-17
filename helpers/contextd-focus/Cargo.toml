@@ -1,0 +1,17 @@
+[package]
+name = "contextd-focus"
+version = "0.10.0"
+edition = "2024"
+license = "MIT"
+description = "Session helper that tells contextd which process owns the focused window"
+
+[dependencies]
+contextd-client = { path = "../../contextd-client" }
+x11rb = { version = "0.13", features = ["res"] }
+serde_json = "1.0"
+log = "0.4"
+env_logger = "0.11"
+anyhow = "1.0"
+
+[dev-dependencies]
+tempfile = "3"
