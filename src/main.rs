@@ -131,7 +131,8 @@ fn run() -> anyhow::Result<()> {
     );
     config::init(args.config.as_deref())?;
 
-    // All sockets are acquired before any thread starts (see sockets::bind).
+    // Read the socket-activation variables before any thread starts:
+    // Activated::from_env clears them from the environment.
     let mut activated = Activated::from_env();
     let public = args.runtime_dir.join("public");
     let private = args.runtime_dir.join("private");

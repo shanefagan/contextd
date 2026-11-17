@@ -149,8 +149,10 @@ impl ColorMatrix {
             width: p.width.max(0) as usize,
             height: p.height.max(0) as usize,
             data: bytes
-                .chunks_exact(4)
-                .map(|c| RgbaColor::new(c[0], c[1], c[2], c[3]))
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .map(|&[r, g, b, a]| RgbaColor::new(r, g, b, a))
                 .collect(),
         })
     }

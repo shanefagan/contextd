@@ -65,12 +65,14 @@ impl StoredMatrix {
             height: self.height,
             data: self
                 .rgba
-                .chunks_exact(4)
-                .map(|p| observer::Color {
-                    r: p[0] as i64,
-                    g: p[1] as i64,
-                    b: p[2] as i64,
-                    a: p[3] as i64,
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .map(|&[r, g, b, a]| observer::Color {
+                    r: r as i64,
+                    g: g as i64,
+                    b: b as i64,
+                    a: a as i64,
                 })
                 .collect(),
         }
