@@ -1,6 +1,6 @@
 # Maintainer: Shane Fagan <shane@performativenonsense.com>
 pkgname=contextd-git
-pkgver=0.1.0.r59.72d8b7b
+pkgver=0.10.0.r0.0000000
 pkgrel=1
 pkgdesc="Lightweight game and hardware context daemon (Portable Hybrid)"
 arch=('x86_64')
@@ -17,50 +17,35 @@ md5sums=('SKIP')
 
 pkgver() {
   cd "$srcdir/contextd"
-  printf "0.1.0.r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+  local version
+  version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+  printf "%s.r%s.%s" "$version" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
 }
 
 build() {
   cd "$srcdir/contextd"
   # Clear all environment flags that might interfere with bundled C compilation
-  unset CFLAGS
-  unset CXXFLAGS
-  unset LDFLAGS
-  unset RUSTFLAGS
+  unset CFLAGS CXXFLAGS LDFLAGS RUSTFLAGS
   export LIBSQLITE3_SYS_BUNDLED=1
-  cargo build --release
+  cargo build --release --workspace --locked
+}
+
+check() {
+  cd "$srcdir/contextd"
+  cargo test --release --workspace --locked
 }
 
 package() {
   cd "$srcdir/contextd"
-  
-  # 1. Create the Portable Tree structure in /opt
-  local PORTABLE_DIR="$pkgdir/opt/contextd"
-  install -d "$PORTABLE_DIR/usr/bin"
-  install -d "$PORTABLE_DIR/usr/lib/systemd/system"
-  install -d "$PORTABLE_DIR/home"
-  install -d "$PORTABLE_DIR/sys"
-  install -d "$PORTABLE_DIR/run"
-  install -d "$PORTABLE_DIR/proc"
-  install -d "$PORTABLE_DIR/etc"
-  
-  # 2. Install binary
-  install -m755 "target/release/contextd" "$PORTABLE_DIR/usr/bin/contextd"
-  
-  # 3. Create os-release (Required in /etc or /usr/lib for portablectl)
-  echo "NAME=contextd" > "$PORTABLE_DIR/etc/os-release"
-  echo "ID=contextd" >> "$PORTABLE_DIR/etc/os-release"
-  chmod 644 "$PORTABLE_DIR/etc/os-release"
-  
-  # 4. Install Service File
-  install -m644 "packaging/contextd.service" "$PORTABLE_DIR/usr/lib/systemd/system/contextd.service"
 
-  # 5. Native Wrapper (so 'contextd' command works even when portable)
-  # In a hybrid setup, the user might expect 'contextctl.sh' to be 'contextctl'
-  install -d "$pkgdir/usr/bin"
-  install -m755 "scripts/contextctl.sh" "$pkgdir/usr/bin/contextctl"
+  # 1. Portable service image in /opt
+  ./scripts/package-portable.sh "$srcdir/tree" target/release
+  install -d "$pkgdir/opt"
+  cp -a "$srcdir/tree/contextd" "$pkgdir/opt/contextd"
+
+  # 2. Host side: rgb group, OpenRGB bridge (optional service), CLI
+  cp -a "$srcdir/tree/host/usr" "$pkgdir/usr"
 }
 
-# Post-install logic to attach the service
-# We'll use a .install file for this
+# Post-install logic attaches the portable service
 install=contextd.install

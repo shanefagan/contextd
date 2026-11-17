@@ -9,12 +9,14 @@ This document explains the internal design of `contextd` and how external applic
 ```mermaid
 classDiagram
     class Main {
-        +run_server()
-        +spawn_permission_fixer()
+        +parse_args()
+        +sockets::acquire()
+        +server::serve()
     }
 
     class ContextService {
         +get_active_game()
+        +list_running_games()
         +list_devices()
         +register_controller()
     }
@@ -35,19 +37,25 @@ classDiagram
     }
 
     class Config {
-        +Lazy CONFIG
-        +load()
+        +init(path)
+        +get()
     }
 
     class Auth {
         +verify_unit_access()
-        +get_current_peer()
+        +current_peer()
+    }
+
+    class ControllerManager {
+        +register(peer, hint)
+        +unregister(peer, pid)
     }
 
     Main --> ContextService
     Main --> RgbService
     ContextService --> GameManager
     ContextService --> HardwareManager
+    ContextService --> ControllerManager
     ContextService --> Auth
     RgbService --> Auth
     ContextService --> Config
@@ -55,19 +63,20 @@ classDiagram
 
 ### Key Components:
 1.  **Detectors**: Pluggable modules that gather data from various sources:
-    *   **Game Detectors**: Poll Steam, Lutris, and Heroic manifests.
-    *   **Hardware Detector**: Uses `udev` to discover gaming peripherals and verify `uaccess`.
+    *   **Game Detectors**: Read Steam, Lutris, and Heroic libraries, and recognise running games by the environment variables each launcher sets.
+    *   **Hardware Detector**: Uses `udev` to discover gaming peripherals, group their nodes by physical device, and verify `uaccess`.
     *   **Diagnostics**: Gathers system specs (CPU, GPU, RAM) and library support.
 2.  **Managers**: Handle caching, TTLs, and data aggregation for each category.
-3.  **Varlink Service**: The primary communication layer, exposing typed JSON-RPC over Unix sockets.
-4.  **Security Layer**: Enforces access control based on the caller's identity (see `security.md`).
+3.  **Varlink Service**: The primary communication layer, exposing typed JSON-RPC over Unix sockets. Interface definitions live in `contextd-client/interfaces/`; the daemon and the client crate use the same generated code.
+4.  **Server**: One thread per connection, with per-user connection caps, message size limits and timeouts. Sockets come from systemd socket activation, or are bound directly in development.
+5.  **Security Layer**: Identifies the caller with `SO_PEERCRED` and enforces access control (see `security.md`).
 
 ---
 
 ## 🛰️ Application Interaction Patterns
 
 ### 1. Polling (Status Queries)
-Apps like system monitors or dashboard overlays poll the public interface to get the current state.
+Apps like system monitors or dashboard overlays poll the public interface to get the current state. `GetActiveGame` returns the most recently launched running game; `ListRunningGames` returns all of them.
 ```mermaid
 sequenceDiagram
     participant App
@@ -84,7 +93,7 @@ sequenceDiagram
     participant contextd
     Driver->>contextd: SubscribeLightingContext()
     Note over contextd: Wait for state change...
-    contextd-->>Driver: { main_color: "#FF00FF", ... }
+    contextd-->>Driver: { main_color: {r: 255, g: 0, b: 255, a: 255}, matrix: null }
 ```
 
 ### 3. Hinting (Cooperative Management)
@@ -93,8 +102,8 @@ Control apps signal their activity to avoid hardware conflicts via `RegisterCont
 sequenceDiagram
     participant Controller
     participant contextd
-    Note right of Controller: Registered in config.toml
-    Controller->>contextd: RegisterController(PID, "Lighting")
+    Controller->>contextd: RegisterController(pid: 0, "Lighting")
+    Note over contextd: PID taken from SO_PEERCRED
     contextd-->>Controller: Ok
     Note over contextd: Hint is now visible in ListDevices()
 ```

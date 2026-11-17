@@ -1,0 +1,13 @@
+[Unit]
+Description=Context Daemon core socket
+Documentation=https://github.com/shanefagan/contextd
+
+[Socket]
+ListenStream=/run/contextd/public/contextd.socket
+FileDescriptorName=core
+SocketMode=0666
+DirectoryMode=0755
+Service=contextd.service
+
+[Install]
+WantedBy=sockets.target

@@ -1,0 +1,112 @@
+interface com.performativenonsense.contextd
+
+# A hardware device. Nodes that belong to the same physical device (for
+# example a keyboard's input event nodes and its hidraw node) are grouped
+# into one entry, so two identical controllers show up as two devices.
+type Device (
+  name: string,
+  vendor: string,
+  vendor_id: string,
+  product_id: string,
+  bus_type: string,
+  # Primary node: the first input or hidraw device node, or the sysfs path
+  # for sound cards.
+  path: string,
+  # Every node that belongs to this device, including `path`.
+  paths: []string,
+  classes: []string,
+  has_uaccess: bool,
+  controllers: []Controller
+)
+
+# Hint about an application that can control hardware.
+type Controller (
+  name: string,
+  version: ?string,
+  # The controlling process. Must be the caller itself or one of its
+  # ancestors, owned by the same user.
+  pid: int,
+  description: ?string,
+  website: ?string,
+  capabilities: []string,
+  # Device nodes the application manages. Matched against every entry in
+  # Device.paths.
+  interested_devices: []string
+)
+
+# Game information
+type Game (
+  name: string,
+  id: ?string,
+  source: string,
+  # The launcher-tagged process with the largest resident memory, which is
+  # usually the game itself rather than a wrapper.
+  pid: ?int
+)
+
+# GPU Information
+type Gpu (
+  name: string,
+  vendor: string,
+  driver: string,
+  # VRAM in MiB. 0 when the driver does not report it (only amdgpu does).
+  vram_total: int
+)
+
+# System Diagnostics
+type Diagnostics (
+  vulkan_supported: bool,
+  vulkan_version: ?string,
+  opengl_supported: bool,
+  # Total RAM in MiB
+  ram_total: int,
+  cpu_model: string,
+  cpu_count: int,
+  gpus: []Gpu,
+  kernel_version: string,
+  last_updated: int # Unix timestamp
+)
+
+# Returns the most recently launched game that is still running, if any.
+# contextd cannot see window focus, so this is not necessarily the
+# foreground window.
+method GetActiveGame() -> (game: ?Game)
+
+# Lists every running game, most recently launched first.
+method ListRunningGames() -> (games: []Game)
+
+# Lists all installed games detected on the system.
+method ListInstalledGames() -> (games: []Game)
+
+# Lists connected keyboards, mice, controllers, audio devices and HID devices.
+method ListDevices() -> (devices: []Device)
+
+# Lists devices that expose a raw HID node, which is how most RGB
+# controllers are driven. This is a candidate list: contextd cannot tell
+# which of these devices actually have LEDs.
+method ListRGBDevices() -> (devices: []Device)
+
+# Returns diagnostic information for the system.
+method GetDiagnostics() -> (diagnostics: Diagnostics)
+
+# Registers or updates a controller hint. `controller.pid` must be the
+# calling process or one of its ancestors, owned by the same user.
+method RegisterController(controller: Controller) -> ()
+
+# Unregisters a controller hint. Only the user that owns the hinted process,
+# or root, may remove it.
+method UnregisterController(pid: int) -> ()
+
+# Lists all active controller hints.
+method ListControllers() -> (controllers: []Controller)
+
+error PermissionDenied(unit: string)
+
+# The controller hint was rejected; `reason` says why.
+error InvalidController(reason: string)
+
+# The hint for `pid` belongs to a different user.
+error NotOwner(pid: int)
+
+# A per-user or global limit was reached.
+error LimitExceeded(limit: string, max: int)

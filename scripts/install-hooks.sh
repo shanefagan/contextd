@@ -20,7 +20,7 @@ cat <<EOF > "$PRE_COMMIT"
 
 # Run cargo fmt check
 echo "Checking code formatting (cargo fmt)..."
-cargo fmt -- --check
+cargo fmt --all -- --check
 if [ \$? -ne 0 ]; then
     echo "ERROR: Code formatting check failed. Run 'cargo fmt' to fix."
     exit 1
@@ -28,7 +28,7 @@ fi
 
 # Run cargo clippy
 echo "Running system sanity checks (cargo clippy)..."
-cargo clippy -- -D warnings
+cargo clippy --workspace --all-targets -- -D warnings
 if [ \$? -ne 0 ]; then
     echo "ERROR: Clippy checks failed. Fix the warnings before committing."
     exit 1

@@ -1,0 +1,15 @@
+[Unit]
+Description=Context Daemon RGB control socket
+Documentation=https://github.com/shanefagan/contextd
+
+[Socket]
+ListenStream=/run/contextd/private/contextd-rgb-control.socket
+FileDescriptorName=control
+# Only root and members of contextd-rgb (packaging/sysusers.d) may connect.
+SocketMode=0660
+SocketGroup=contextd-rgb
+DirectoryMode=0755
+Service=contextd-rgb.service
+
+[Install]
+WantedBy=sockets.target

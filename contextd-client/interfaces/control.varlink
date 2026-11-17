@@ -15,18 +15,26 @@ type Matrix (
   data: []Color
 )
 
-# Sets the current lighting context.
+# Sets the current lighting context. Fields that are left out keep their
+# current value. Set `clear_matrix` to true to remove the current matrix;
+# it cannot be combined with `matrix`.
 method SetLightingContext(
   main_color: ?Color,
-  matrix: ?Matrix
+  matrix: ?Matrix,
+  clear_matrix: ?bool
 ) -> ()
 
 # The Matrix size requested is too large
 error MatrixTooLarge(max_pixels: int)
 
-# The Matrix data length does not match width * height
+# Width or height is not positive, or the data length does not match
+# width * height
 error InvalidMatrixSize(width: int, height: int, data_len: int)
 
 # A color component value is outside the valid range (0-255)
 error InvalidColorValue(component: string, value: int)
+# The caller is not allowed to change the lighting context.
 error PermissionDenied(unit: string)
+
+# `matrix` and `clear_matrix` were both given.
+error ConflictingArguments()

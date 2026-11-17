@@ -1,7 +1,5 @@
-use super::{Game, GameDetector};
+use super::{Game, GameDetector, GameRef, ProcessEnv, home_dirs};
 use rusqlite::{Connection, OpenFlags};
-use std::collections::HashMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 pub struct LutrisDetector;
@@ -13,18 +11,13 @@ impl LutrisDetector {
 
     fn find_lutris_db_paths(&self) -> Vec<PathBuf> {
         let mut paths = Vec::new();
-        if let Ok(entries) = fs::read_dir("/home") {
-            for entry in entries.flatten() {
-                let user_home = entry.path();
-                // Native path
-                let native = user_home.join(".local/share/lutris/pga.db");
-                if native.exists() {
-                    paths.push(native);
-                }
-                // Flatpak path
-                let flatpak = user_home.join(".var/app/net.lutris.Lutris/data/lutris/pga.db");
-                if flatpak.exists() {
-                    paths.push(flatpak);
+        for user_home in home_dirs() {
+            for candidate in [
+                user_home.join(".local/share/lutris/pga.db"),
+                user_home.join(".var/app/net.lutris.Lutris/data/lutris/pga.db"),
+            ] {
+                if candidate.exists() {
+                    paths.push(candidate);
                 }
             }
         }
@@ -32,32 +25,26 @@ impl LutrisDetector {
     }
 
     fn query_db(&self, path: &Path) -> Vec<Game> {
-        let mut games = Vec::new();
-        // Open as RO to avoid locking issues with running Lutris
-        if let Ok(conn) = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY) {
-            let stmt = conn
-                .prepare("SELECT name, slug, installed FROM games WHERE installed = 1")
-                .ok();
-            if let Some(mut s) = stmt {
-                let rows = s
-                    .query_map([], |row| {
-                        Ok(Game {
-                            name: row.get(0)?,
-                            id: Some(row.get(1)?),
-                            source: "Lutris".to_string(),
-                            pid: None,
-                        })
-                    })
-                    .ok();
-
-                if let Some(r) = rows {
-                    for game in r.flatten() {
-                        games.push(game);
-                    }
-                }
-            }
-        }
-        games
+        // Read-only, so a running Lutris is never blocked by our lock.
+        let Ok(conn) = Connection::open_with_flags(
+            path,
+            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        ) else {
+            return Vec::new();
+        };
+        let Ok(mut stmt) = conn.prepare("SELECT name, slug FROM games WHERE installed = 1") else {
+            return Vec::new();
+        };
+        stmt.query_map([], |row| {
+            Ok(Game {
+                name: row.get(0)?,
+                id: Some(row.get(1)?),
+                source: "Lutris".to_string(),
+                pid: None,
+            })
+        })
+        .map(|rows| rows.flatten().collect())
+        .unwrap_or_default()
     }
 }
 
@@ -67,52 +54,59 @@ impl GameDetector for LutrisDetector {
     }
 
     fn list_installed(&self) -> Vec<Game> {
-        let mut games = Vec::new();
-        for db_path in self.find_lutris_db_paths() {
-            games.extend(self.query_db(&db_path));
-        }
-        // Deduplicate
-        games.sort_by_key(|g| g.id.clone());
+        let mut games: Vec<Game> = self
+            .find_lutris_db_paths()
+            .iter()
+            .flat_map(|p| self.query_db(p))
+            .collect();
+        games.sort_by(|a, b| a.id.cmp(&b.id));
         games.dedup_by(|a, b| a.id == b.id);
         games
     }
 
-    fn list_running(&self) -> Vec<Game> {
-        let mut running = Vec::new();
-        let installed = self.list_installed();
-        let slug_map: HashMap<String, Game> = installed
-            .into_iter()
-            .filter_map(|g| g.id.clone().map(|slug| (slug, g)))
-            .collect();
+    fn env_keys(&self) -> &'static [&'static str] {
+        &["LUTRIS_GAME_UUID", "GAME_NAME"]
+    }
 
-        if let Ok(proc_entries) = fs::read_dir("/proc") {
-            for entry in proc_entries.flatten() {
-                let pid = entry.file_name();
-                let pid_str = pid.to_string_lossy();
-                if pid_str.chars().all(|c| c.is_ascii_digit()) {
-                    let environ_path = entry.path().join("environ");
-                    if let Ok(environ) = fs::read(environ_path) {
-                        for env_var in environ.split(|&b| b == 0) {
-                            let var_str = String::from_utf8_lossy(env_var);
-                            // Lutris often sets variables like LUTRIS_GAME_SLUG
-                            if var_str.starts_with("LUTRIS_GAME_SLUG=") {
-                                if let Some(slug) = var_str.split('=').nth(1)
-                                    && let Some(game) = slug_map.get(slug)
-                                {
-                                    let mut running_game = game.clone();
-                                    running_game.pid = pid_str.parse().ok();
-                                    running.push(running_game);
-                                }
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    /// Lutris tags game processes with a random per-launch
+    /// `LUTRIS_GAME_UUID` and the game's display name in `GAME_NAME`.
+    /// `GAME_NAME` alone is too generic, so both must be present.
+    fn identify(&self, env: &ProcessEnv) -> Option<GameRef> {
+        env.get("LUTRIS_GAME_UUID")?;
+        env.get("GAME_NAME").map(|n| GameRef::Name(n.clone()))
+    }
+}
 
-        running.sort_by_key(|g| g.id.clone());
-        running.dedup_by(|a, b| a.id == b.id);
-        running
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn needs_both_variables() {
+        let d = LutrisDetector::new();
+        let mut env = ProcessEnv::new();
+        env.insert("GAME_NAME", "Diablo II".into());
+        assert_eq!(d.identify(&env), None);
+        env.insert(
+            "LUTRIS_GAME_UUID",
+            "1b4e28ba-2fa1-11d2-883f-0016d3cca427".into(),
+        );
+        assert_eq!(d.identify(&env), Some(GameRef::Name("Diablo II".into())));
+    }
+
+    #[test]
+    fn reads_installed_games() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("pga.db");
+        let conn = Connection::open(&db).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE games (name TEXT, slug TEXT, installed INTEGER);
+             INSERT INTO games VALUES ('Diablo II', 'diablo-ii', 1), ('Old', 'old', 0);",
+        )
+        .unwrap();
+        drop(conn);
+        let games = LutrisDetector::new().query_db(&db);
+        assert_eq!(games.len(), 1);
+        assert_eq!(games[0].id.as_deref(), Some("diablo-ii"));
     }
 }

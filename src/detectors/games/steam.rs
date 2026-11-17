@@ -1,7 +1,24 @@
-use super::{Game, GameDetector};
-use std::collections::HashMap;
+use super::vdf::{self, Value};
+use super::{Game, GameDetector, GameRef, ProcessEnv, home_dirs};
 use std::fs;
 use std::path::{Path, PathBuf};
+
+/// Steam app IDs that are tools rather than games.
+const TOOL_APP_IDS: &[&str] = &[
+    "228980",  // Steamworks Common Redistributables
+    "1070560", // Steam Linux Runtime 1.0 (scout)
+    "1391110", // Steam Linux Runtime 2.0 (soldier)
+    "1628350", // Steam Linux Runtime 3.0 (sniper)
+];
+
+/// Proton builds, runtimes and redistributables have install manifests
+/// like games do. New Proton versions get new app IDs, so match on name.
+fn is_tool(id: &str, name: &str) -> bool {
+    TOOL_APP_IDS.contains(&id)
+        || name.starts_with("Proton ")
+        || name.starts_with("Steam Linux Runtime")
+        || name == "Steamworks Common Redistributables"
+}
 
 pub struct SteamDetector;
 
@@ -12,88 +29,64 @@ impl SteamDetector {
 
     fn find_steam_libraries(&self) -> Vec<PathBuf> {
         let mut all_libraries = Vec::new();
-
-        // Scan /home for all users to find Steam installations
-        if let Ok(entries) = fs::read_dir("/home") {
-            for entry in entries.flatten() {
-                let user_home = entry.path();
-
-                // Potential Steam roots
-                let roots = vec![
-                    user_home.join(".local/share/Steam"),
-                    user_home.join(".steam/steam"),
-                    user_home.join(".var/app/com.valvesoftware.Steam/.local/share/Steam"), // Flatpak
-                ];
-
-                for root in roots {
-                    if root.join("steamapps").exists() {
-                        // Found a Steam root, now find its libraries
-                        for lib in self.get_library_folders(&root) {
-                            if !all_libraries.contains(&lib) {
-                                all_libraries.push(lib);
-                            }
+        for user_home in home_dirs() {
+            let roots = [
+                user_home.join(".local/share/Steam"),
+                user_home.join(".steam/steam"),
+                user_home.join(".var/app/com.valvesoftware.Steam/.local/share/Steam"), // Flatpak
+            ];
+            for root in roots {
+                if root.join("steamapps").exists() {
+                    for lib in self.get_library_folders(&root) {
+                        // .steam/steam is usually a symlink to the same root.
+                        let lib = fs::canonicalize(&lib).unwrap_or(lib);
+                        if !all_libraries.contains(&lib) {
+                            all_libraries.push(lib);
                         }
                     }
                 }
             }
         }
-
         all_libraries
     }
 
     fn get_library_folders(&self, steam_path: &Path) -> Vec<PathBuf> {
         let mut folders = vec![steam_path.to_path_buf()];
         let vdf_path = steam_path.join("steamapps/libraryfolders.vdf");
-
-        if let Ok(content) = fs::read_to_string(vdf_path) {
-            // Basic VDF parser
-            for line in content.lines() {
-                let line = line.trim();
-                if line.starts_with("\"path\"") {
-                    let parts: Vec<&str> =
-                        line.split('"').filter(|s| !s.trim().is_empty()).collect();
-                    if parts.len() >= 2 {
-                        let path = PathBuf::from(parts[1]);
-                        if path.exists() && !folders.contains(&path) {
-                            folders.push(path);
-                        }
-                    }
+        let Some(doc) = fs::read_to_string(vdf_path)
+            .ok()
+            .and_then(|c| vdf::parse(&c))
+        else {
+            return folders;
+        };
+        let Some(root) = doc.get("libraryfolders") else {
+            return folders;
+        };
+        for (_, folder) in root.children() {
+            if let Some(path) = folder.get("path").and_then(Value::as_str) {
+                let path = PathBuf::from(path);
+                if path.exists() && !folders.contains(&path) {
+                    folders.push(path);
                 }
             }
         }
-
         folders
     }
 
     fn parse_acf(&self, path: &Path) -> Option<Game> {
-        let content = fs::read_to_string(path).ok()?;
-        let mut appid = None;
-        let mut name = None;
-
-        for line in content.lines() {
-            let line = line.trim();
-            if line.starts_with("\"appid\"") || line.starts_with("\"name\"") {
-                let parts: Vec<&str> = line.split('"').filter(|s| !s.trim().is_empty()).collect();
-                if parts.len() >= 2 {
-                    if parts[0] == "appid" {
-                        appid = Some(parts[1].to_string());
-                    } else if parts[0] == "name" {
-                        name = Some(parts[1].to_string());
-                    }
-                }
-            }
+        let doc = vdf::parse(&fs::read_to_string(path).ok()?)?;
+        let fields = vdf::string_fields(&doc, "AppState");
+        let id = fields.get("appid")?.clone();
+        let name = fields.get("name")?.clone();
+        if is_tool(&id, &name) {
+            return None;
         }
-
-        if let (Some(id), Some(n)) = (appid, name) {
-            Some(Game {
-                name: n,
-                id: Some(id),
-                source: "Steam".to_string(),
-                pid: None,
-            })
-        } else {
-            None
-        }
+        Some(Game {
+            name,
+            id: Some(id),
+            source: "Steam".to_string(),
+            pid: None,
+        })
     }
 }
 
@@ -103,62 +96,88 @@ impl GameDetector for SteamDetector {
     }
 
     fn list_installed(&self) -> Vec<Game> {
-        let mut games = Vec::new();
-        let libraries = self.find_steam_libraries();
-
-        for library in libraries {
-            let steamapps = library.join("steamapps");
-            if let Ok(entries) = fs::read_dir(steamapps) {
-                for entry in entries.flatten() {
-                    let path = entry.path();
-                    if path.extension().and_then(|s| s.to_str()) == Some("acf")
-                        && let Some(ref game) = self.parse_acf(&path)
-                        && !games.iter().any(|g: &Game| g.id == game.id)
-                    {
-                        games.push(game.clone());
-                    }
+        let mut games: Vec<Game> = Vec::new();
+        for library in self.find_steam_libraries() {
+            let Ok(entries) = fs::read_dir(library.join("steamapps")) else {
+                continue;
+            };
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|s| s.to_str()) == Some("acf")
+                    && let Some(game) = self.parse_acf(&path)
+                    && !games.iter().any(|g| g.id == game.id)
+                {
+                    games.push(game);
                 }
             }
         }
         games
     }
 
-    fn list_running(&self) -> Vec<Game> {
-        let mut running = Vec::new();
-        let installed = self.list_installed();
-        let id_map: HashMap<String, Game> = installed
-            .into_iter()
-            .filter_map(|g| g.id.clone().map(|id| (id, g)))
-            .collect();
+    fn env_keys(&self) -> &'static [&'static str] {
+        &["SteamAppId"]
+    }
 
-        if let Ok(proc_entries) = fs::read_dir("/proc") {
-            for entry in proc_entries.flatten() {
-                let name = entry.file_name();
-                let name_str = name.to_string_lossy();
-                if name_str.chars().all(|c| c.is_ascii_digit()) {
-                    let environ_path = entry.path().join("environ");
-                    // Root can read any process's environ
-                    if let Ok(environ) = fs::read(environ_path) {
-                        for env_var in environ.split(|&b| b == 0) {
-                            if env_var.starts_with(b"SteamAppId=") {
-                                if let Ok(id) = std::str::from_utf8(&env_var[11..])
-                                    && let Some(game) = id_map.get(id)
-                                {
-                                    let mut running_game = game.clone();
-                                    running_game.pid = name_str.parse().ok();
-                                    running.push(running_game);
-                                }
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    fn identify(&self, env: &ProcessEnv) -> Option<GameRef> {
+        env.get("SteamAppId")
+            .filter(|id| id.as_str() != "0")
+            .map(|id| GameRef::Id(id.clone()))
+    }
+}
 
-        running.sort_by_key(|g| g.id.clone());
-        running.dedup_by(|a, b| a.id == b.id);
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-        running
+    #[test]
+    fn filters_tools() {
+        assert!(is_tool("1493710", "Proton Experimental"));
+        assert!(is_tool("2805730", "Proton 9.0"));
+        assert!(is_tool("1628350", "Steam Linux Runtime 3.0 (sniper)"));
+        assert!(is_tool("228980", "Steamworks Common Redistributables"));
+        assert!(!is_tool("1245620", "ELDEN RING"));
+        assert!(!is_tool("1", "Protonwar"));
+    }
+
+    #[test]
+    fn reads_library_folders_and_manifests() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("Steam");
+        let extra = dir.path().join("Extra Library");
+        fs::create_dir_all(root.join("steamapps")).unwrap();
+        fs::create_dir_all(extra.join("steamapps")).unwrap();
+        fs::write(
+            root.join("steamapps/libraryfolders.vdf"),
+            format!(
+                "\"libraryfolders\" {{ \"0\" {{ \"path\" \"{}\" }} \"1\" {{ \"path\" \"{}\" }} }}",
+                root.display(),
+                extra.display()
+            ),
+        )
+        .unwrap();
+        fs::write(
+            extra.join("steamapps/appmanifest_1.acf"),
+            "\"AppState\" { \"appid\" \"1\" \"name\" \"Game One\" }",
+        )
+        .unwrap();
+        fs::write(
+            extra.join("steamapps/appmanifest_2.acf"),
+            "\"AppState\" { \"appid\" \"2805730\" \"name\" \"Proton 9.0\" }",
+        )
+        .unwrap();
+
+        let d = SteamDetector::new();
+        let libs = d.get_library_folders(&root);
+        assert_eq!(libs, vec![root.clone(), extra.clone()]);
+        assert_eq!(
+            d.parse_acf(&extra.join("steamapps/appmanifest_1.acf"))
+                .unwrap()
+                .name,
+            "Game One"
+        );
+        assert!(
+            d.parse_acf(&extra.join("steamapps/appmanifest_2.acf"))
+                .is_none()
+        );
     }
 }
