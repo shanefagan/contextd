@@ -12,7 +12,7 @@
 //!
 //! Heroic sets `HEROIC_APP_NAME` to the same app name on game processes.
 
-use super::{Game, GameDetector, GameRef, ProcessEnv, home_dirs};
+use super::{Game, GameDetector, GameRef, Installed, ProcessEnv, home_dirs};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
@@ -133,7 +133,7 @@ impl GameDetector for HeroicDetector {
         "Heroic"
     }
 
-    fn list_installed(&self) -> Vec<Game> {
+    fn list_installed(&self) -> Vec<Installed> {
         let mut games = Vec::new();
         for (config, heroic) in self.heroic_roots() {
             for legendary in [
@@ -160,7 +160,7 @@ impl GameDetector for HeroicDetector {
 
         games.sort_by(|a, b| (&a.source, &a.id).cmp(&(&b.source, &b.id)));
         games.dedup_by(|a, b| a.id == b.id && a.source == b.source);
-        games
+        games.into_iter().map(Installed::plain).collect()
     }
 
     fn env_keys(&self) -> &'static [&'static str] {
