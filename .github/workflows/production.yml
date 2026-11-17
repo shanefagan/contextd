@@ -47,11 +47,15 @@ jobs:
 
       - name: Verify systemd units
         run: |
-          for unit in packaging/*.service packaging/*.socket; do
-            # Binaries are not installed on the runner; everything else must pass.
-            systemd-analyze verify --man=no "$unit" 2>&1 | grep -v "is not executable" | tee /tmp/verify.log
-            test ! -s /tmp/verify.log
-          done
+          # Verify all units together so cross-references resolve. systemd also
+          # parses the runner's own units and warns about them, so keep only
+          # messages about our files. Our binaries are not installed here, so
+          # "is not executable" is expected.
+          units=$(ls packaging/*.service packaging/*.socket | xargs -n1 basename | paste -sd'|')
+          systemd-analyze verify --man=no --recursive-errors=no packaging/*.service packaging/*.socket 2>&1 \
+            | grep -E "(^|/)($units)(:| )" | grep -v "is not executable" > /tmp/verify.log || true
+          cat /tmp/verify.log
+          test ! -s /tmp/verify.log
 
   security_audit:
     name: Security Audit
