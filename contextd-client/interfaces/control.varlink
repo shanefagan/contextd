@@ -15,12 +15,22 @@ type Matrix (
   data: []Color
 )
 
+# The same matrix in compact form: width * height pixels, row-major, four
+# bytes each (R, G, B, A), base64-encoded (standard alphabet, padded).
+# About an eighth of the size of Matrix in JSON.
+type PackedMatrix (
+  width: int,
+  height: int,
+  rgba: string
+)
+
 # Sets the current lighting context. Fields that are left out keep their
-# current value. Set `clear_matrix` to true to remove the current matrix;
-# it cannot be combined with `matrix`.
+# current value. Give at most one of `matrix`, `packed_matrix` and
+# `clear_matrix: true`; the last removes the current matrix.
 method SetLightingContext(
   main_color: ?Color,
   matrix: ?Matrix,
+  packed_matrix: ?PackedMatrix,
   clear_matrix: ?bool
 ) -> ()
 
@@ -28,13 +38,17 @@ method SetLightingContext(
 error MatrixTooLarge(max_pixels: int)
 
 # Width or height is not positive, or the data length does not match
-# width * height
+# width * height (for packed_matrix, data_len counts pixels)
 error InvalidMatrixSize(width: int, height: int, data_len: int)
+
+# packed_matrix.rgba is not valid base64, or not a whole number of pixels.
+error InvalidPackedMatrix(reason: string)
 
 # A color component value is outside the valid range (0-255)
 error InvalidColorValue(component: string, value: int)
+
 # The caller is not allowed to change the lighting context.
 error PermissionDenied(unit: string)
 
-# `matrix` and `clear_matrix` were both given.
+# More than one of `matrix`, `packed_matrix` and `clear_matrix` was given.
 error ConflictingArguments()

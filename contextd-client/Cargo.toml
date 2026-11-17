@@ -16,6 +16,7 @@ serde_json = "1.0"
 log = "0.4"
 thiserror = "2.0"
 varlink = "13.0"
+base64 = "0.22"
 
 [build-dependencies]
 varlink_generator = "13.0"

@@ -15,14 +15,27 @@ type Matrix (
   data: []Color
 )
 
-# Returns the current ambient lighting context.
-method GetLightingContext() -> (
-  main_color: Color,
-  matrix: ?Matrix
+# The same matrix in compact form: width * height pixels, row-major, four
+# bytes each (R, G, B, A), base64-encoded (standard alphabet, padded).
+# About an eighth of the size of Matrix in JSON.
+type PackedMatrix (
+  width: int,
+  height: int,
+  rgba: string
 )
 
-# Subscribes to lighting context updates.
-method SubscribeLightingContext() -> (
+# Returns the current ambient lighting context. With `packed` set to true
+# the matrix is returned in `packed_matrix` instead of `matrix`.
+method GetLightingContext(packed: ?bool) -> (
   main_color: Color,
-  matrix: ?Matrix
+  matrix: ?Matrix,
+  packed_matrix: ?PackedMatrix
+)
+
+# Subscribes to lighting context updates (call with "more": true). With
+# `packed` set to true the matrix is sent in `packed_matrix`.
+method SubscribeLightingContext(packed: ?bool) -> (
+  main_color: Color,
+  matrix: ?Matrix,
+  packed_matrix: ?PackedMatrix
 )
