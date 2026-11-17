@@ -144,7 +144,8 @@ jobs:
           --transform "s|^\.|${{ env.NAME }}-${RPM_VER}|" .
 
         rpmbuild -ba packaging/rpm/contextd.spec --define "_topdir $(pwd)/rpmbuild" --nodeps
-        cp rpmbuild/RPMS/x86_64/*.rpm dist/${{ env.NAME }}-${{ env.VERSION }}-x86_64.rpm
+        # Match the main package only, never -debuginfo/-debugsource.
+        cp rpmbuild/RPMS/x86_64/${{ env.NAME }}-${RPM_VER}-*.x86_64.rpm dist/${{ env.NAME }}-${{ env.VERSION }}-x86_64.rpm
 
     - name: Upload Workspace Artifacts
       uses: actions/upload-artifact@v7
