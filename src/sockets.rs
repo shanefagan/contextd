@@ -6,10 +6,12 @@
 
 use anyhow::{Context, bail};
 use std::fs;
+use std::fs::DirBuilder;
 use std::os::fd::{FromRawFd, OwnedFd, RawFd};
-use std::os::unix::fs::{FileTypeExt, PermissionsExt};
+use std::os::unix::fs::{DirBuilderExt, FileTypeExt, PermissionsExt};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 const SD_LISTEN_FDS_START: RawFd = 3;
 
@@ -96,16 +98,15 @@ pub fn acquire(
     bind(path, mode)
 }
 
-/// Binds a Unix socket at `path` and sets its mode, without a window in
-/// which the socket is more permissive than `mode`.
+/// Binds a Unix socket at `path` with `mode`, without a window in which the
+/// socket is reachable with looser permissions.
 ///
-/// Must be called before any other threads are started, because it changes
-/// the process umask temporarily.
+/// The socket is bound inside a private (0700) staging directory next to
+/// `path`, given its final mode there, and then renamed into place. This
+/// avoids changing the process umask, which is shared by every thread.
 pub fn bind(path: &Path, mode: u32) -> anyhow::Result<UnixListener> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .with_context(|| format!("cannot create {}", parent.display()))?;
-    }
+    let parent = path.parent().unwrap_or(Path::new("."));
+    fs::create_dir_all(parent).with_context(|| format!("cannot create {}", parent.display()))?;
 
     match fs::symlink_metadata(path) {
         Ok(meta) if meta.file_type().is_socket() => {
@@ -125,16 +126,30 @@ pub fn bind(path: &Path, mode: u32) -> anyhow::Result<UnixListener> {
         Err(_) => {}
     }
 
-    // Bind with owner-only permissions, then widen to the requested mode.
-    // SAFETY: umask has no memory-safety requirements.
-    let old = unsafe { libc::umask(0o177) };
-    let result = UnixListener::bind(path);
-    unsafe { libc::umask(old) };
-    let listener = result.with_context(|| format!("cannot bind {}", path.display()))?;
+    static COUNTER: AtomicU32 = AtomicU32::new(0);
+    let staging = parent.join(format!(
+        ".contextd-bind-{}-{}",
+        std::process::id(),
+        COUNTER.fetch_add(1, Ordering::Relaxed)
+    ));
+    DirBuilder::new()
+        .mode(0o700)
+        .create(&staging)
+        .with_context(|| format!("cannot create {}", staging.display()))?;
 
-    fs::set_permissions(path, fs::Permissions::from_mode(mode))
-        .with_context(|| format!("cannot chmod {}", path.display()))?;
-    Ok(listener)
+    let staged = staging.join("socket");
+    let result = UnixListener::bind(&staged)
+        .with_context(|| format!("cannot bind {}", path.display()))
+        .and_then(|listener| {
+            fs::set_permissions(&staged, fs::Permissions::from_mode(mode))
+                .with_context(|| format!("cannot chmod {}", path.display()))?;
+            fs::rename(&staged, path)
+                .with_context(|| format!("cannot move socket to {}", path.display()))?;
+            Ok(listener)
+        });
+    let _ = fs::remove_file(&staged);
+    let _ = fs::remove_dir(&staging);
+    result
 }
 
 #[cfg(test)]
@@ -158,6 +173,17 @@ mod tests {
         assert!(bind(&path, 0o600).is_err());
         drop(live);
         assert!(bind(&path, 0o600).is_ok());
+    }
+
+    #[test]
+    fn leaves_no_staging_directories_behind() {
+        let dir = tempfile::tempdir().unwrap();
+        let _l = bind(&dir.path().join("a.socket"), 0o666).unwrap();
+        let names: Vec<_> = fs::read_dir(dir.path())
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
+        assert_eq!(names, vec!["a.socket"]);
     }
 
     #[test]
