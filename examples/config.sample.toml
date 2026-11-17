@@ -1,21 +1,34 @@
 # contextd configuration file
 # Place this at /etc/contextd/config.toml
+#
+# Every section and key is optional. If this file exists but contains an
+# error (including a misspelt key), contextd refuses to start rather than
+# silently falling back to defaults.
 
 [ttls]
-# TTL for active game detection in seconds (default 5)
+# Running-game detection cache, in seconds (default 5)
 games = 5
-# TTL for hardware inventory in seconds (default 10)
+# Installed-game library scan cache, in seconds (default 60)
+installed_games = 60
+# Hardware inventory cache, in seconds (default 10)
 hardware = 10
-# TTL for system diagnostics in seconds (default 300)
+# System diagnostics cache, in seconds (default 300)
 diagnostics = 300
 
 [blacklist]
-# Process names to ignore in game detection
-# processes = ["Calculator"]
-# Hardware paths (udev paths) to ignore
-# devices = ["/sys/devices/virtual/input/input231"]
+# Game names to hide from game detection (exact match)
+# games = ["Steamworks Common Redistributables"]
+# Device nodes or sysfs paths to hide
+# devices = ["/dev/input/event5"]
 
 [auth]
-# systemd units authorized to access restricted interfaces (e.g. RGB Control)
-# If this list is empty, validation is disabled.
-# authorized_units = ["openrgb.service"]
+# Only members of the `contextd-rgb` group (and root) can open the RGB
+# control socket. To narrow that to specific system services, list them
+# here. Only units under system.slice match; user-session units never do.
+# authorized_units = ["openrgb.service", "openrgb-contextd-bridge.service"]
+
+[server]
+# Limits per socket that stop one local user from starving everyone else.
+# max_connections = 128
+# max_connections_per_uid = 16
+# idle_timeout_secs = 120

@@ -1,11 +1,13 @@
 [package]
 name = "contextd-client"
-version = "0.9.2"
+version = "0.10.0"
 edition = "2024"
 authors = ["Shane Fagan <shane@performativenonsense.com>"]
 homepage = "https://github.com/shanefagan/contextd"
 repository = "https://github.com/shanefagan/contextd"
 license = "MIT"
+description = "Client library for contextd, the Linux game and hardware context daemon"
+keywords = ["varlink", "linux", "rgb", "gaming"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }

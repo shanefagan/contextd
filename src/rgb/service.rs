@@ -1,95 +1,174 @@
 //! RGB Lighting Context Service
 //!
-//! This service provides a passive storage for the system-wide lighting "vibe,"
-//! which can be a single ambient color (RGBA) or an N-N matrix of colors.
+//! Stores the system-wide lighting "vibe": a single ambient color (RGBA)
+//! and an optional matrix of colors.
 //!
-//! The service implements two distinct interfaces:
-//! 1. Observer: A read-only/subscriber interface for hardware drivers.
-//! 2. Control: A write-only interface for authorized lighting controllers.
+//! The service implements two interfaces:
+//! 1. Observer: read and subscribe, for hardware drivers.
+//! 2. Control: write, for authorized lighting controllers.
+//!
+//! Subscribers always receive the latest state. If several updates arrive
+//! while a subscriber is still writing the previous one, it skips straight
+//! to the newest instead of queueing or being disconnected.
 
-use crate::auth::verify_unit_access;
-use crate::config::CONFIG;
-use crate::rgb::control;
-use crate::rgb::observer;
-use std::sync::{Arc, RwLock, mpsc};
+use crate::auth;
+use crate::config;
+use crate::rgb::{control, observer};
+use crate::util::lock;
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
+use std::time::Duration;
 
-/// The maximum allowed total pixels for the lighting matrix (e.g. 128x128 = 16384)
-const MAX_MATRIX_PIXELS: i64 = 16384;
+/// The maximum number of pixels in the lighting matrix (128 x 128).
+pub const MAX_MATRIX_PIXELS: i64 = 16384;
 
-/// Shared internal state holding the current lighting context and subscribers
+/// How often an idle subscription checks whether its client hung up.
+const HANGUP_CHECK_INTERVAL: Duration = Duration::from_secs(1);
+
+struct Shared {
+    main_color: observer::Color,
+    matrix: Option<observer::Matrix>,
+    /// Incremented on every change; subscribers compare against it.
+    generation: u64,
+}
+
 #[derive(Clone)]
 pub struct RgbService {
-    context: Arc<RwLock<LightingState>>,
-    subscribers: Arc<RwLock<Vec<mpsc::SyncSender<LightingUpdate>>>>,
+    inner: Arc<(Mutex<Shared>, Condvar)>,
 }
 
-/// Internal state holding the current lighting context.
-/// Note: We use observer types as our internal "canonical" state.
-struct LightingState {
-    main_color: observer::Color,
-    matrix: Option<observer::Matrix>,
+/// A rejected `SetLightingContext` request.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Rejection {
+    InvalidColor(&'static str, i64),
+    InvalidMatrixSize { width: i64, height: i64, len: i64 },
+    MatrixTooLarge,
+    ConflictingArguments,
 }
 
-/// Message sent to subscribers when the context changes
-#[derive(Clone)]
-struct LightingUpdate {
-    main_color: observer::Color,
-    matrix: Option<observer::Matrix>,
+/// Checks a request without touching any state.
+pub fn validate(
+    main_color: Option<&control::Color>,
+    matrix: Option<&control::Matrix>,
+    clear_matrix: bool,
+) -> Result<(), Rejection> {
+    if clear_matrix && matrix.is_some() {
+        return Err(Rejection::ConflictingArguments);
+    }
+    if let Some(c) = main_color {
+        validate_color(c)?;
+    }
+    if let Some(m) = matrix {
+        let len = m.data.len() as i64;
+        let size_error = Rejection::InvalidMatrixSize {
+            width: m.width,
+            height: m.height,
+            len,
+        };
+        if m.width <= 0 || m.height <= 0 {
+            return Err(size_error);
+        }
+        // checked_mul: width * height must not wrap around (2^32 * 2^32 = 0).
+        match m.width.checked_mul(m.height) {
+            Some(total) if total <= MAX_MATRIX_PIXELS => {
+                if len != total {
+                    return Err(size_error);
+                }
+            }
+            _ => return Err(Rejection::MatrixTooLarge),
+        }
+        m.data.iter().try_for_each(validate_color)?;
+    }
+    Ok(())
+}
+
+fn validate_color(c: &control::Color) -> Result<(), Rejection> {
+    for (name, value) in [("r", c.r), ("g", c.g), ("b", c.b), ("a", c.a)] {
+        if !(0..=255).contains(&value) {
+            return Err(Rejection::InvalidColor(name, value));
+        }
+    }
+    Ok(())
+}
+
+fn to_observer(c: control::Color) -> observer::Color {
+    observer::Color {
+        r: c.r,
+        g: c.g,
+        b: c.b,
+        a: c.a,
+    }
+}
+
+impl Default for RgbService {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RgbService {
-    /// Creates a new RgbService with default "dim grey" ambient lighting
+    /// Creates a new RgbService with default "dim grey" ambient lighting.
     pub fn new() -> Self {
         Self {
-            context: Arc::new(RwLock::new(LightingState {
-                main_color: observer::Color {
-                    r: 50,
-                    g: 50,
-                    b: 50,
-                    a: 255, // Default fully opaque
-                },
-                matrix: None,
-            })),
-            subscribers: Arc::new(RwLock::new(Vec::new())),
+            inner: Arc::new((
+                Mutex::new(Shared {
+                    main_color: observer::Color {
+                        r: 50,
+                        g: 50,
+                        b: 50,
+                        a: 255,
+                    },
+                    matrix: None,
+                    generation: 0,
+                }),
+                Condvar::new(),
+            )),
         }
     }
 
-    /// Helper to broadcast updates to all active subscribers
-    fn broadcast(&self, update: LightingUpdate) {
-        let mut subs = self.subscribers.write().unwrap();
-        subs.retain(|tx| match tx.try_send(update.clone()) {
-            Ok(_) => true,
-            Err(mpsc::TrySendError::Full(_)) => {
-                log::debug!("Subscriber too slow, dropping");
-                false
-            }
-            Err(mpsc::TrySendError::Disconnected(_)) => false,
-        });
+    fn snapshot(&self) -> (observer::Color, Option<observer::Matrix>, u64) {
+        let s = lock(&self.inner.0);
+        (s.main_color.clone(), s.matrix.clone(), s.generation)
     }
 
-    /// Validates that an RGBA color has components within the 0-255 range
-    fn validate_color(
+    /// Applies an already validated update and wakes all subscribers.
+    pub fn apply(
         &self,
-        call: &mut dyn control::Call_SetLightingContext,
-        c: &control::Color,
-    ) -> varlink::Result<bool> {
-        if c.r < 0 || c.r > 255 {
-            call.reply_invalid_color_value("r".to_string(), c.r)?;
-            return Ok(false);
+        main_color: Option<control::Color>,
+        matrix: Option<control::Matrix>,
+        clear_matrix: bool,
+    ) {
+        let (mutex, cvar) = &*self.inner;
+        let mut s = lock(mutex);
+        if let Some(c) = main_color {
+            s.main_color = to_observer(c);
         }
-        if c.g < 0 || c.g > 255 {
-            call.reply_invalid_color_value("g".to_string(), c.g)?;
-            return Ok(false);
+        if clear_matrix {
+            s.matrix = None;
         }
-        if c.b < 0 || c.b > 255 {
-            call.reply_invalid_color_value("b".to_string(), c.b)?;
-            return Ok(false);
+        if let Some(m) = matrix {
+            s.matrix = Some(observer::Matrix {
+                width: m.width,
+                height: m.height,
+                data: m.data.into_iter().map(to_observer).collect(),
+            });
         }
-        if c.a < 0 || c.a > 255 {
-            call.reply_invalid_color_value("a".to_string(), c.a)?;
-            return Ok(false);
-        }
-        Ok(true)
+        s.generation += 1;
+        drop(s);
+        cvar.notify_all();
+    }
+
+    /// Blocks until the state is newer than `seen`, or the timeout passes.
+    fn wait_for_change(
+        &self,
+        seen: u64,
+        timeout: Duration,
+    ) -> Option<(observer::Color, Option<observer::Matrix>, u64)> {
+        let (mutex, cvar) = &*self.inner;
+        let guard = lock(mutex);
+        let (s, _) = cvar
+            .wait_timeout_while(guard, timeout, |s| s.generation == seen)
+            .unwrap_or_else(PoisonError::into_inner);
+        (s.generation != seen).then(|| (s.main_color.clone(), s.matrix.clone(), s.generation))
     }
 }
 
@@ -99,32 +178,38 @@ impl observer::VarlinkInterface for RgbService {
         &self,
         call: &mut dyn observer::Call_GetLightingContext,
     ) -> varlink::Result<()> {
-        let state = self.context.read().unwrap();
-        call.reply(state.main_color.clone(), state.matrix.clone())
+        let (color, matrix, _) = self.snapshot();
+        call.reply(color, matrix)
     }
 
     fn subscribe_lighting_context(
         &self,
         call: &mut dyn observer::Call_SubscribeLightingContext,
     ) -> varlink::Result<()> {
-        let (tx, rx) = mpsc::sync_channel(16);
-        {
-            let mut subs = self.subscribers.write().unwrap();
-            subs.push(tx);
+        let (color, matrix, mut seen) = self.snapshot();
+        if !call.wants_more() {
+            // Called without "more": behave like GetLightingContext.
+            return call.reply(color, matrix);
         }
+        call.set_continues(true);
+        call.reply(color, matrix)?;
 
-        // Initial reply
-        {
-            let state = self.context.read().unwrap();
-            call.set_continues(true);
-            call.reply(state.main_color.clone(), state.matrix.clone())?;
-        }
-
-        while let Ok(update) = rx.recv() {
-            call.set_continues(true);
-            if let Err(e) = call.reply(update.main_color, update.matrix) {
-                log::debug!("Subscriber disconnected: {}", e);
-                break;
+        loop {
+            match self.wait_for_change(seen, HANGUP_CHECK_INTERVAL) {
+                Some((color, matrix, generation)) => {
+                    seen = generation;
+                    call.set_continues(true);
+                    if let Err(e) = call.reply(color, matrix) {
+                        log::debug!("Subscriber disconnected: {}", e);
+                        break;
+                    }
+                }
+                None => {
+                    if auth::current_connection_closed() {
+                        log::debug!("Subscriber hung up");
+                        break;
+                    }
+                }
             }
         }
         Ok(())
@@ -138,77 +223,147 @@ impl control::VarlinkInterface for RgbService {
         call: &mut dyn control::Call_SetLightingContext,
         main_color: Option<control::Color>,
         matrix: Option<control::Matrix>,
+        clear_matrix: Option<bool>,
     ) -> varlink::Result<()> {
-        // 0. Authorization Logic
-        if let Err(unit) = verify_unit_access(&CONFIG.auth.authorized_units) {
-            log::warn!("Unauthorized access attempt from unit: {}", unit);
-            return call.reply_permission_denied(unit);
-        }
-
-        // 1. Validation Logic
-        if let Some(c) = &main_color
-            && !self.validate_color(call, c)?
+        let peer = auth::current_peer();
+        if let Err(caller) =
+            auth::verify_unit_access(&config::get().auth.authorized_units, peer.as_ref())
         {
-            return Ok(());
+            log::warn!("Unauthorized lighting change from {}", caller);
+            return call.reply_permission_denied(caller);
         }
 
-        if let Some(m) = &matrix {
-            if m.width < 0 || m.height < 0 {
-                return call.reply_invalid_matrix_size(m.width, m.height, m.data.len() as i64);
+        let clear_matrix = clear_matrix.unwrap_or(false);
+        match validate(main_color.as_ref(), matrix.as_ref(), clear_matrix) {
+            Ok(()) => {}
+            Err(Rejection::InvalidColor(component, value)) => {
+                return call.reply_invalid_color_value(component.to_string(), value);
             }
-            let total_pixels = m.width * m.height;
-            if total_pixels > MAX_MATRIX_PIXELS {
+            Err(Rejection::InvalidMatrixSize { width, height, len }) => {
+                return call.reply_invalid_matrix_size(width, height, len);
+            }
+            Err(Rejection::MatrixTooLarge) => {
                 return call.reply_matrix_too_large(MAX_MATRIX_PIXELS);
             }
-            if m.data.len() as i64 != total_pixels {
-                return call.reply_invalid_matrix_size(m.width, m.height, m.data.len() as i64);
-            }
-            // Validate every pixel in the matrix
-            for pixel in &m.data {
-                if !self.validate_color(call, pixel)? {
-                    return Ok(());
-                }
+            Err(Rejection::ConflictingArguments) => {
+                return call.reply_conflicting_arguments();
             }
         }
 
-        // 2. Commit Logic
-        let mut state = self.context.write().unwrap();
-
-        // Convert control types to internal/observer types
-        if let Some(c) = main_color {
-            state.main_color = observer::Color {
-                r: c.r,
-                g: c.g,
-                b: c.b,
-                a: c.a,
-            };
-        }
-
-        if let Some(m) = matrix {
-            state.matrix = Some(observer::Matrix {
-                width: m.width,
-                height: m.height,
-                data: m
-                    .data
-                    .into_iter()
-                    .map(|c| observer::Color {
-                        r: c.r,
-                        g: c.g,
-                        b: c.b,
-                        a: c.a,
-                    })
-                    .collect(),
-            });
-        }
-
-        let update = LightingUpdate {
-            main_color: state.main_color.clone(),
-            matrix: state.matrix.clone(),
-        };
-
-        log::debug!("Lighting context updated, broadcasting to observers");
-        self.broadcast(update);
-
+        self.apply(main_color, matrix, clear_matrix);
+        log::debug!("Lighting context updated");
         call.reply()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn color(v: i64) -> control::Color {
+        control::Color {
+            r: v,
+            g: v,
+            b: v,
+            a: 255,
+        }
+    }
+
+    fn matrix(width: i64, height: i64, len: usize) -> control::Matrix {
+        control::Matrix {
+            width,
+            height,
+            data: vec![color(1); len],
+        }
+    }
+
+    #[test]
+    fn accepts_valid_input() {
+        assert_eq!(
+            validate(Some(&color(255)), Some(&matrix(4, 2, 8)), false),
+            Ok(())
+        );
+        assert_eq!(
+            validate(None, Some(&matrix(128, 128, 16384)), false),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn rejects_bad_colors() {
+        assert_eq!(
+            validate(Some(&color(256)), None, false),
+            Err(Rejection::InvalidColor("r", 256))
+        );
+        let mut m = matrix(1, 1, 1);
+        m.data[0].a = -1;
+        assert_eq!(
+            validate(None, Some(&m), false),
+            Err(Rejection::InvalidColor("a", -1))
+        );
+    }
+
+    #[test]
+    fn rejects_overflowing_dimensions() {
+        let huge = 1i64 << 32;
+        assert_eq!(
+            validate(None, Some(&matrix(huge, huge, 0)), false),
+            Err(Rejection::MatrixTooLarge)
+        );
+        assert_eq!(
+            validate(None, Some(&matrix(i64::MAX, 2, 0)), false),
+            Err(Rejection::MatrixTooLarge)
+        );
+        assert_eq!(
+            validate(None, Some(&matrix(129, 128, 0)), false),
+            Err(Rejection::MatrixTooLarge)
+        );
+    }
+
+    #[test]
+    fn rejects_bad_sizes() {
+        assert!(matches!(
+            validate(None, Some(&matrix(0, 0, 0)), false),
+            Err(Rejection::InvalidMatrixSize { .. })
+        ));
+        assert!(matches!(
+            validate(None, Some(&matrix(-2, -2, 4)), false),
+            Err(Rejection::InvalidMatrixSize { .. })
+        ));
+        assert!(matches!(
+            validate(None, Some(&matrix(2, 2, 3)), false),
+            Err(Rejection::InvalidMatrixSize { .. })
+        ));
+    }
+
+    #[test]
+    fn clear_and_matrix_conflict() {
+        assert_eq!(
+            validate(None, Some(&matrix(1, 1, 1)), true),
+            Err(Rejection::ConflictingArguments)
+        );
+    }
+
+    #[test]
+    fn matrix_can_be_cleared() {
+        let s = RgbService::new();
+        s.apply(None, Some(matrix(1, 1, 1)), false);
+        assert!(s.snapshot().1.is_some());
+        s.apply(Some(color(9)), None, false);
+        assert!(s.snapshot().1.is_some(), "main color alone keeps matrix");
+        s.apply(None, None, true);
+        assert!(s.snapshot().1.is_none());
+        assert_eq!(s.snapshot().0.r, 9);
+    }
+
+    #[test]
+    fn waiters_get_latest_state() {
+        let s = RgbService::new();
+        let seen = s.snapshot().2;
+        assert!(s.wait_for_change(seen, Duration::from_millis(10)).is_none());
+        s.apply(Some(color(1)), None, false);
+        s.apply(Some(color(2)), None, false);
+        let (c, _, generation) = s.wait_for_change(seen, Duration::from_millis(10)).unwrap();
+        assert_eq!((c.r, generation), (2, seen + 2), "coalesced to newest");
     }
 }
